@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import Layout from './components/Layout'
 import Home from './pages/Home'
+import Cutter from './pages/Cutter'
 import Check from './pages/Check'
 import { detectLang } from './i18n'
 
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/" element={<Navigate to={`/${detectLang()}`} replace />} />
       <Route path="/:lang" element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="cutter" element={<Cutter />} />
         <Route path="check" element={<Check />} />
         <Route path="*" element={<NotFound />} />
       </Route>

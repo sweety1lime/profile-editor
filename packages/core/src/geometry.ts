@@ -44,6 +44,17 @@ export const SHOWCASES: Record<ShowcaseKind, Showcase> = {
   },
 }
 
+// Фоны профиля шириной 1920 px. В режиме «Original Size» фон стоит по центру страницы без масштабирования
+export const PROFILE_BACKGROUND_WIDTH = 1920
+
+// Где на фоне оказывается левый край витрины. Пока прикидка, поправим после сверки со скриншотом профиля
+export const PROFILE_OFFSET_X: Record<ShowcaseKind, number> = {
+  artwork: 494,
+  screenshot: 494,
+  featured: 494,
+  workshop: 494,
+}
+
 // Steam пишет про 5 МБ, берём с небольшим запасом
 export const UPLOAD_LIMIT_BYTES = 4_950_000
 

@@ -1,5 +1,6 @@
 {
   "nav": {
+    "cutter": "Cutter",
     "check": "Check"
   },
   "home": {
@@ -9,7 +10,7 @@
     "tools": {
       "cutter": {
         "title": "Showcase cutter",
-        "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF or a video."
+        "text": "Artwork, featured artwork, screenshots and workshop. Pictures for now, GIFs and videos are next."
       },
       "optimizer": {
         "title": "GIFs under 5 MB",
@@ -31,6 +32,70 @@
         "title": "Upload helper",
         "text": "A userscript that fills in the right codes on the Steam upload page for you."
       }
+    }
+  },
+  "cutter": {
+    "title": "Showcase cutter",
+    "source": {
+      "title": "Picture",
+      "file": "Choose a file",
+      "linkPlaceholder": "Link to a picture or a profile",
+      "load": "Load",
+      "linkHint": "Paste a direct link to a picture or a Steam profile link, then its background is used.",
+      "gifNote": "GIFs are cut like a regular picture for now, animation comes later."
+    },
+    "empty": {
+      "title": "Drop a picture here",
+      "text": "Or choose a file on the left. A Steam background, an artwork or a screenshot will do."
+    },
+    "kind": {
+      "title": "Showcase",
+      "artwork": "Artwork",
+      "artworkSize": "506 + 100 px",
+      "featured": "Featured",
+      "featuredSize": "630 px",
+      "screenshot": "Screenshots",
+      "screenshotSize": "506 + 100 px",
+      "workshop": "Workshop",
+      "workshopSize": "5 parts",
+      "workshopNote": "Steam crops long workshop parts to a square. Showing them in full needs the hex patch, it comes together with GIF support."
+    },
+    "frame": {
+      "title": "Position",
+      "height": "Height",
+      "zoom": "Zoom",
+      "alignProfile": "Like on profile",
+      "fitWidth": "Fit width",
+      "position": "X {{x}}, Y {{y}}",
+      "hint": "Drag the frame with the mouse, scroll to zoom, arrow keys move it by a pixel, 10 with Shift."
+    },
+    "format": {
+      "title": "Format",
+      "hint": "PNG is lossless but heavier. If a file doesn't fit into 5 MB, use JPG."
+    },
+    "export": {
+      "button": "Download ZIP",
+      "working": "Cutting…",
+      "size": "{{mb}} MB",
+      "tooBig": "Some files are over 5 MB and Steam won't take them. Try JPG or a smaller height."
+    },
+    "upload": {
+      "title": "How to upload to Steam",
+      "step1": "1. Open the artwork upload page: {{url}}",
+      "step2": "2. Pick the file and open the browser console: Ctrl+Shift+J in Chrome, Ctrl+Shift+K in Firefox. In Firefox type allow pasting first.",
+      "step3": "3. Paste the code below, press Enter and save. If there are several files, upload them in the numbered order.",
+      "note": "In the artwork list the picture will look like a thin line, that's expected.",
+      "workshopNote": "Then add each file to favorites and pick them in the workshop showcase in the same order.",
+      "copy": "Copy code",
+      "copied": "Copied"
+    },
+    "readme": "Files for the \"{{kind}}\" showcase",
+    "errors": {
+      "unsupported_link": "Can't read this link. Use a direct link to a picture or a Steam profile.",
+      "load_failed": "Couldn't load the picture. If it opens in the browser, download it and choose it as a file.",
+      "no_background": "This profile has no Points Shop background.",
+      "not_found": "Profile not found.",
+      "steam_unavailable": "Steam isn't responding, try again later."
     }
   },
   "check": {

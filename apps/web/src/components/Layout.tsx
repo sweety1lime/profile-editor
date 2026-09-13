@@ -25,11 +25,14 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-4">
+        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4">
           <Link to={`/${lang}`} className="font-semibold text-white">
             Profile Editor
           </Link>
           <nav className="flex gap-4 text-sm">
+            <NavLink to={`/${lang}/cutter`} className={navClass}>
+              {t('nav.cutter')}
+            </NavLink>
             <NavLink to={`/${lang}/check`} className={navClass}>
               {t('nav.check')}
             </NavLink>
@@ -55,7 +58,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-5xl flex-wrap gap-x-4 gap-y-1 px-4 py-6 text-sm text-slate-500">
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-x-4 gap-y-1 px-4 py-6 text-sm text-slate-500">
           <span>{t('footer.note')}</span>
           <a href={REPO_URL} className="hover:text-slate-300" target="_blank" rel="noreferrer">
             {t('footer.source')}

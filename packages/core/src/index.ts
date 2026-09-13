@@ -1,4 +1,5 @@
 export * from './geometry'
+export * from './crop'
 export * from './gif'
 export * from './steam/input'
 export * from './steam/profile'

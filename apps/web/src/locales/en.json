@@ -48,7 +48,6 @@
     "raw": "Server response",
     "errors": {
       "bad_input": "That doesn't look like a link or a SteamID.",
-      "vanity_needs_key": "Short links don't work yet, use a SteamID64.",
       "not_found": "Profile not found.",
       "steam_unavailable": "Steam isn't responding, try again later.",
       "unknown": "Something went wrong."

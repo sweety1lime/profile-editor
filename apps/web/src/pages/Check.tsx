@@ -8,7 +8,7 @@ type State =
   | { status: 'error'; code: string }
   | { status: 'done'; profile: ProfileData }
 
-const KNOWN_ERRORS = ['bad_input', 'vanity_needs_key', 'not_found', 'steam_unavailable']
+const KNOWN_ERRORS = ['bad_input', 'not_found', 'steam_unavailable']
 
 // Пробуем нарисовать картинку со Steam CDN в canvas и прочитать пиксель.
 // Если CDN не отдаёт CORS-заголовки, getImageData упадёт.

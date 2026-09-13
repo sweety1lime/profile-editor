@@ -1,13 +1,10 @@
-import { fileURLToPath } from 'node:url'
-import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { handleProfileRequest } from '../../packages/core/src/steam/profile'
 
-const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
-
 // На Vercel /api отвечает серверная функция, а локально отвечаем сами, чтобы не ставить vercel cli
-function steamApi(apiKey?: string): Plugin {
+function steamApi(): Plugin {
   return {
     name: 'steam-api',
     configureServer(server) {
@@ -15,7 +12,6 @@ function steamApi(apiKey?: string): Plugin {
         const path = (req as { originalUrl?: string }).originalUrl ?? req.url ?? '/'
         const response = await handleProfileRequest(
           new Request(new URL(path, 'http://localhost'), { method: req.method }),
-          { apiKey },
         )
         res.statusCode = response.status
         response.headers.forEach((value, key) => res.setHeader(key, value))
@@ -25,9 +21,6 @@ function steamApi(apiKey?: string): Plugin {
   }
 }
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, repoRoot, '')
-  return {
-    plugins: [react(), tailwindcss(), steamApi(env.STEAM_API_KEY)],
-  }
+export default defineConfig({
+  plugins: [react(), tailwindcss(), steamApi()],
 })

@@ -17,6 +17,15 @@ const ITEMS = {
   },
 }
 
+const xmlProfile = (privacy = 'public') => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><profile>
+	<steamID64>${ID}</steamID64>
+	<steamID><![CDATA[Rabscuttle]]></steamID>
+	<privacyState>${privacy}</privacyState>
+	<avatarFull><![CDATA[https://avatars.fastly.steamstatic.com/abc_full.jpg]]></avatarFull>
+</profile>`
+
+const XML_NOT_FOUND = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><response><error><![CDATA[The specified profile could not be found.]]></error></response>`
+
 function fakeSteam(routes: Record<string, unknown>) {
   const calls: string[] = []
   const fetchFn = (async (input: RequestInfo | URL) => {
@@ -25,27 +34,39 @@ function fakeSteam(routes: Record<string, unknown>) {
     const body = routes[url.pathname]
     if (body === undefined) return new Response('', { status: 500 })
     if (typeof body === 'number') return new Response('', { status: body })
+    if (typeof body === 'string') return new Response(body, { headers: { 'Content-Type': 'text/xml' } })
     return Response.json(body)
   }) as typeof fetch
   return { fetchFn, calls }
 }
 
+const fullProfile = (privacy = 'public'): Record<string, unknown> => ({
+  [`/profiles/${ID}/`]: xmlProfile(privacy),
+  '/id/rabscuttle/': xmlProfile(privacy),
+  '/miniprofile/22202/json/': { level: 42, persona_name: 'Rabscuttle', avatar_url: 'https://a/mini.jpg' },
+  '/IPlayerService/GetProfileItemsEquipped/v1/': ITEMS,
+  '/IPlayerService/GetProfileCustomization/v1/': { response: { profile_theme: { theme_id: 'Midnight' } } },
+})
+
 const req = (id: string, method = 'GET') =>
   new Request(`https://example.test/api/steam/profile?id=${encodeURIComponent(id)}`, { method })
 
 describe('handleProfileRequest', () => {
-  it('works without a key: items and theme only', async () => {
-    const { fetchFn, calls } = fakeSteam({
-      '/IPlayerService/GetProfileItemsEquipped/v1/': ITEMS,
-      '/IPlayerService/GetProfileCustomization/v1/': { response: { profile_theme: { theme_id: 'Midnight' } } },
-    })
+  it('collects a public profile by SteamID64', async () => {
+    const { fetchFn } = fakeSteam(fullProfile())
     const res = await handleProfileRequest(req(ID), { fetch: fetchFn })
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.steamid).toBe(ID)
-    expect(body.theme).toBe('Midnight')
-    expect(body.name).toBeUndefined()
+    expect(body).toMatchObject({
+      steamid: ID,
+      name: 'Rabscuttle',
+      avatar: 'https://avatars.fastly.steamstatic.com/abc_full.jpg',
+      profileUrl: `https://steamcommunity.com/profiles/${ID}/`,
+      isPublic: true,
+      level: 42,
+      theme: 'Midnight',
+    })
     expect(body.background).toEqual({
       name: 'Neon City',
       image: `${CDN}items/2196160/bg.jpg`,
@@ -54,35 +75,44 @@ describe('handleProfileRequest', () => {
     })
     expect(body.avatarFrame.imageSmall).toBe(`${CDN}items/1/frame_anim.png`)
     expect(body.miniProfile).toBeUndefined()
-    expect(calls).not.toContain('/ISteamUser/GetPlayerSummaries/v2/')
     expect(res.headers.get('Vercel-CDN-Cache-Control')).toContain('s-maxage')
   })
 
-  it('with a key resolves vanity names and adds name, avatar, level', async () => {
-    const { fetchFn } = fakeSteam({
-      '/ISteamUser/ResolveVanityURL/v1/': { response: { success: 1, steamid: ID } },
-      '/IPlayerService/GetProfileItemsEquipped/v1/': ITEMS,
-      '/IPlayerService/GetProfileCustomization/v1/': { response: {} },
-      '/ISteamUser/GetPlayerSummaries/v2/': {
-        response: { players: [{ personaname: 'Rabscuttle', avatarfull: 'https://a/b.jpg', communityvisibilitystate: 3 }] },
-      },
-      '/IPlayerService/GetSteamLevel/v1/': { response: { player_level: 42 } },
-    })
-    const res = await handleProfileRequest(req('https://steamcommunity.com/id/rabscuttle'), {
-      apiKey: 'k',
-      fetch: fetchFn,
-    })
+  it('resolves a short link through the profile xml', async () => {
+    const { fetchFn, calls } = fakeSteam(fullProfile())
+    const res = await handleProfileRequest(req('https://steamcommunity.com/id/rabscuttle/'), { fetch: fetchFn })
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toMatchObject({ steamid: ID, name: 'Rabscuttle', level: 42, isPublic: true })
-    expect(body.theme).toBeUndefined()
+    expect(body.steamid).toBe(ID)
+    expect(calls[0]).toBe('/id/rabscuttle/')
   })
 
-  it('asks for SteamID64 when there is no key', async () => {
-    const res = await handleProfileRequest(req('somebody'))
-    expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'vanity_needs_key' })
+  it('hides the level of a private profile', async () => {
+    const { fetchFn } = fakeSteam(fullProfile('friendsonly'))
+    const body = await (await handleProfileRequest(req(ID), { fetch: fetchFn })).json()
+    expect(body.isPublic).toBe(false)
+    expect(body.level).toBeUndefined()
+  })
+
+  it('returns 404 for an unknown name', async () => {
+    const { fetchFn } = fakeSteam({ '/id/nobody/': XML_NOT_FOUND })
+    const res = await handleProfileRequest(req('nobody'), { fetch: fetchFn })
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'not_found' })
+  })
+
+  it('still answers when steamcommunity is down but the api works', async () => {
+    const routes = fullProfile()
+    delete routes[`/profiles/${ID}/`]
+    delete routes['/miniprofile/22202/json/']
+    const { fetchFn } = fakeSteam(routes)
+    const res = await handleProfileRequest(req(ID), { fetch: fetchFn })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.name).toBeUndefined()
+    expect(body.background.image).toBe(`${CDN}items/2196160/bg.jpg`)
   })
 
   it('rejects bad input and other methods', async () => {
@@ -90,14 +120,10 @@ describe('handleProfileRequest', () => {
     expect((await handleProfileRequest(req(ID, 'POST'))).status).toBe(405)
   })
 
-  it('returns 404 when the vanity name does not exist', async () => {
-    const { fetchFn } = fakeSteam({ '/ISteamUser/ResolveVanityURL/v1/': { response: { success: 42 } } })
-    const res = await handleProfileRequest(req('nobody'), { apiKey: 'k', fetch: fetchFn })
-    expect(res.status).toBe(404)
-  })
-
   it('passes 429 through and does not cache errors', async () => {
     const { fetchFn } = fakeSteam({
+      [`/profiles/${ID}/`]: 429,
+      '/miniprofile/22202/json/': 429,
       '/IPlayerService/GetProfileItemsEquipped/v1/': 429,
       '/IPlayerService/GetProfileCustomization/v1/': 429,
     })

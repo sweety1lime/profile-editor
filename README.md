@@ -22,13 +22,7 @@ npm install
 npm run dev
 ```
 
-Для превью по SteamID нужен ключ Steam Web API, его можно получить на https://steamcommunity.com/dev/apikey. Положи его в `.env` в корне проекта:
-
-```
-STEAM_API_KEY=твой_ключ
-```
-
-Без ключа тоже работает, но только по SteamID64 и без ника, аватара и уровня.
+Никаких ключей Steam не нужно: профиль ищется по ссылке, нику из ссылки или SteamID64 через открытые данные Steam.
 
 Остальные команды: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`.
 
@@ -40,7 +34,7 @@ STEAM_API_KEY=твой_ключ
 
 ## Деплой
 
-Сайт живёт на Vercel. Настройки лежат в `vercel.json`, ключ Steam задаётся в переменных окружения проекта как `STEAM_API_KEY`.
+Сайт живёт на Vercel, настройки лежат в `vercel.json`. Переменные окружения не нужны.
 
 ## Лицензия
 

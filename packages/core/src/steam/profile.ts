@@ -1,7 +1,9 @@
 import { parseProfileRef, type ProfileRef } from './input'
 
 const API = 'https://api.steampowered.com'
+const COMMUNITY = 'https://steamcommunity.com'
 const ASSETS = 'https://shared.fastly.steamstatic.com/community_assets/images/'
+const STEAMID64_BASE = 76561197960265728n
 const TIMEOUT_MS = 8000
 
 export interface ItemMedia {
@@ -16,7 +18,7 @@ export interface ProfileData {
   steamid: string
   name?: string
   avatar?: string
-  profileUrl?: string
+  profileUrl: string
   level?: number
   isPublic?: boolean
   theme?: string
@@ -27,7 +29,6 @@ export interface ProfileData {
 }
 
 export interface SteamEnv {
-  apiKey?: string
   fetch?: typeof fetch
 }
 
@@ -62,31 +63,61 @@ interface CustomizationResponse {
   response?: { profile_theme?: { theme_id?: string } }
 }
 
-interface SummaryResponse {
-  response?: {
-    players?: {
-      personaname?: string
-      avatarfull?: string
-      profileurl?: string
-      communityvisibilitystate?: number
-    }[]
+interface CommunityProfile {
+  steamid: string
+  name?: string
+  avatar?: string
+  isPublic: boolean
+}
+
+interface MiniProfile {
+  level?: number
+  persona_name?: string
+  avatar_url?: string
+}
+
+async function request(env: SteamEnv, url: URL): Promise<Response> {
+  const res = await (env.fetch ?? fetch)(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+  if (!res.ok) throw new SteamError(res.status === 429 ? 429 : 502, 'steam_unavailable')
+  return res
+}
+
+async function api<T>(env: SteamEnv, path: string, params: Record<string, string>): Promise<T> {
+  const url = new URL(path, API)
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+  return (await (await request(env, url)).json()) as T
+}
+
+function xmlTag(xml: string, tag: string): string | undefined {
+  const match = xml.match(new RegExp(`<${tag}>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*))</${tag}>`))
+  const value = match?.[1] ?? match?.[2]
+  return value?.trim() || undefined
+}
+
+// XML-версия страницы профиля. Отдаёт SteamID64, ник, аватар и приватность, ключ не нужен
+async function communityProfile(ref: ProfileRef, env: SteamEnv): Promise<CommunityProfile> {
+  const path = ref.type === 'id' ? `/profiles/${ref.steamid}/` : `/id/${ref.vanity}/`
+  const url = new URL(path, COMMUNITY)
+  url.searchParams.set('xml', '1')
+  const xml = await (await request(env, url)).text()
+
+  if (xmlTag(xml, 'error')) throw new SteamError(404, 'not_found')
+  const steamid = xmlTag(xml, 'steamID64')
+  if (!steamid) throw new SteamError(502, 'steam_unavailable')
+
+  return {
+    steamid,
+    name: xmlTag(xml, 'steamID'),
+    avatar: xmlTag(xml, 'avatarFull'),
+    isPublic: xmlTag(xml, 'privacyState') === 'public',
   }
 }
 
-interface LevelResponse {
-  response?: { player_level?: number }
-}
-
-interface VanityResponse {
-  response?: { success?: number; steamid?: string }
-}
-
-async function call<T>(env: SteamEnv, path: string, params: Record<string, string>): Promise<T> {
-  const url = new URL(path, API)
-  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
-  const res = await (env.fetch ?? fetch)(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-  if (!res.ok) throw new SteamError(res.status === 429 ? 429 : 502, 'steam_unavailable')
-  return (await res.json()) as T
+// То, что Steam показывает во всплывающей карточке профиля, отсюда берём уровень
+async function miniProfile(steamid: string, env: SteamEnv): Promise<MiniProfile> {
+  const accountId = (BigInt(steamid) - STEAMID64_BASE).toString()
+  const res = await request(env, new URL(`/miniprofile/${accountId}/json/`, COMMUNITY))
+  return (await res.json()) as MiniProfile
 }
 
 // Steam отдаёт пути вида items/<appid>/<file>, достраиваем до полного адреса на CDN
@@ -102,43 +133,36 @@ function media(item: RawItem | undefined): ItemMedia | undefined {
   }
 }
 
-async function resolveSteamId(ref: ProfileRef, env: SteamEnv): Promise<string> {
-  if (ref.type === 'id') return ref.steamid
-  if (!env.apiKey) throw new SteamError(400, 'vanity_needs_key')
-  const data = await call<VanityResponse>(env, '/ISteamUser/ResolveVanityURL/v1/', {
-    key: env.apiKey,
-    vanityurl: ref.vanity,
-  })
-  if (data.response?.success !== 1 || !data.response.steamid) throw new SteamError(404, 'not_found')
-  return data.response.steamid
-}
-
 export async function fetchProfile(ref: ProfileRef, env: SteamEnv = {}): Promise<ProfileData> {
-  const steamid = await resolveSteamId(ref, env)
-  const key = env.apiKey
+  const community = communityProfile(ref, env)
+  // по короткой ссылке сначала узнаём SteamID64, по обычной грузим всё сразу
+  const steamid = ref.type === 'id' ? ref.steamid : (await community).steamid
 
-  // предметы и тема отдаются без ключа, ник, аватар и уровень только с ключом
-  const [items, custom, summary, level] = await Promise.allSettled([
-    call<ItemsResponse>(env, '/IPlayerService/GetProfileItemsEquipped/v1/', { steamid }),
-    call<CustomizationResponse>(env, '/IPlayerService/GetProfileCustomization/v1/', { steamid }),
-    key ? call<SummaryResponse>(env, '/ISteamUser/GetPlayerSummaries/v2/', { key, steamids: steamid }) : undefined,
-    key ? call<LevelResponse>(env, '/IPlayerService/GetSteamLevel/v1/', { key, steamid }) : undefined,
+  const [profile, items, custom, mini] = await Promise.allSettled([
+    community,
+    api<ItemsResponse>(env, '/IPlayerService/GetProfileItemsEquipped/v1/', { steamid }),
+    api<CustomizationResponse>(env, '/IPlayerService/GetProfileCustomization/v1/', { steamid }),
+    miniProfile(steamid, env),
   ])
 
-  const player = summary.status === 'fulfilled' ? summary.value?.response?.players?.[0] : undefined
-  if (items.status === 'rejected' && !player) throw items.reason
-  if (key && summary.status === 'fulfilled' && !player) throw new SteamError(404, 'not_found')
+  if (profile.status === 'rejected' && profile.reason instanceof SteamError && profile.reason.status === 404) {
+    throw profile.reason
+  }
+  if (items.status === 'rejected') throw items.reason
 
-  const equipped = items.status === 'fulfilled' ? (items.value.response ?? {}) : {}
+  const p = profile.status === 'fulfilled' ? profile.value : undefined
+  const m = mini.status === 'fulfilled' ? mini.value : undefined
+  const equipped = items.value.response ?? {}
   const theme = custom.status === 'fulfilled' ? custom.value.response?.profile_theme?.theme_id : undefined
 
   return {
     steamid,
-    name: player?.personaname,
-    avatar: player?.avatarfull,
-    profileUrl: player?.profileurl,
-    isPublic: player ? player.communityvisibilitystate === 3 : undefined,
-    level: level.status === 'fulfilled' ? level.value?.response?.player_level : undefined,
+    name: p?.name ?? m?.persona_name,
+    avatar: p?.avatar ?? m?.avatar_url,
+    profileUrl: `${COMMUNITY}/profiles/${steamid}/`,
+    isPublic: p?.isPublic,
+    // у закрытых профилей уровень всегда приходит нулём
+    level: p?.isPublic === false ? undefined : m?.level,
     theme: theme || undefined,
     background: media(equipped.profile_background),
     miniProfile: media(equipped.mini_profile_background),

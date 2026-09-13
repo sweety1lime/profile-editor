@@ -1,23 +1,46 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  FPS_OPTIONS,
+  MAX_CLIP_SECONDS,
   PROFILE_OFFSET_X,
   UPLOAD_LIMIT_BYTES,
   UPLOAD_PAGE,
   UPLOAD_SNIPPETS,
+  buildTimeline,
   clampHeight,
   fitFrame,
   isProfileBackground,
+  nearestFps,
   sliceRects,
   zoomFrame,
   type Frame,
   type ShowcaseKind,
 } from '@profile-editor/core'
 import CropCanvas from '../components/CropCanvas'
-import { SourceError, fromFile, fromLink, type SourceImage } from '../lib/source'
+import ShowcasePreview from '../components/ShowcasePreview'
+import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
+import type { Progress } from '../lib/encodeGif'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
+const DEFAULT_CLIP_SECONDS = 5
+const MIN_CLIP_SECONDS = 0.2
+
+interface Clip {
+  start: number
+  length: number
+  fps: number
+}
+
+interface Result {
+  files: ExportedFile[]
+  frames?: number
+  fps?: number
+  thinned?: boolean
+}
+
+type Busy = Progress | { stage: 'still' }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -25,6 +48,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">{title}</h2>
       {children}
     </section>
+  )
+}
+
+function RangeRow(props: {
+  label: string
+  display: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1 flex justify-between text-slate-400">
+        <span>{props.label}</span>
+        <span className="text-white">{props.display}</span>
+      </div>
+      <input
+        type="range"
+        min={props.min}
+        max={props.max}
+        step={props.step ?? 1}
+        value={props.value}
+        onChange={(e) => props.onChange(Number(e.target.value))}
+        className="w-full accent-accent"
+      />
+    </label>
   )
 }
 
@@ -39,33 +90,48 @@ const toggleClass = (active: boolean) =>
 
 export default function Cutter() {
   const { t } = useTranslation()
-  const [source, setSource] = useState<SourceImage | null>(null)
+  const [source, setSource] = useState<Source | null>(null)
   const [kind, setKind] = useState<ShowcaseKind>('artwork')
   const [frame, setFrame] = useState<Frame | null>(null)
+  const [clip, setClip] = useState<Clip | null>(null)
+  const [hex, setHex] = useState(false)
   const [format, setFormat] = useState<OutFormat>('png')
   const [link, setLink] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [files, setFiles] = useState<ExportedFile[] | null>(null)
-  const [exporting, setExporting] = useState(false)
+  const [busy, setBusy] = useState<Busy | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [result, setResult] = useState<Result | null>(null)
+  const [tab, setTab] = useState<'edit' | 'result'>('edit')
   const [copied, setCopied] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  // старую картинку освобождаем, когда пришла новая
+  // старый исходник освобождаем, когда пришёл новый
   useEffect(() => {
     return () => {
-      if (source?.image instanceof ImageBitmap) source.image.close()
+      if (source) disposeSource(source)
     }
   }, [source])
 
-  async function load(task: () => Promise<SourceImage>) {
+  function resetResult() {
+    setResult(null)
+    setTab('edit')
+    setExportError(null)
+  }
+
+  async function load(task: () => Promise<Source>) {
     setLoading(true)
     setError(null)
     try {
       const next = await task()
       setSource(next)
       setFrame(fitFrame(kind, next.width, next.height))
-      setFiles(null)
+      setClip(
+        next.type === 'animated'
+          ? { start: 0, length: Math.min(next.duration, DEFAULT_CLIP_SECONDS), fps: nearestFps(next.fps) }
+          : null,
+      )
+      resetResult()
     } catch (err) {
       setError(err instanceof SourceError ? err.code : 'load_failed')
     } finally {
@@ -89,7 +155,8 @@ export default function Cutter() {
 
   function changeKind(next: ShowcaseKind) {
     setKind(next)
-    setFiles(null)
+    setHex(next === 'workshop')
+    resetResult()
     if (!source || !frame) return
     setFrame(
       isProfileBackground(source.width)
@@ -100,8 +167,19 @@ export default function Cutter() {
 
   function changeFrame(next: Frame) {
     setFrame(next)
-    setFiles(null)
+    resetResult()
   }
+
+  function changeClip(patch: Partial<Clip>) {
+    if (!clip || source?.type !== 'animated') return
+    const next = { ...clip, ...patch }
+    const maxLength = Math.max(MIN_CLIP_SECONDS, Math.min(MAX_CLIP_SECONDS, source.duration - next.start))
+    next.length = Math.min(Math.max(next.length, MIN_CLIP_SECONDS), maxLength)
+    setClip(next)
+    resetResult()
+  }
+
+  const timeline = clip ? buildTimeline(clip.start, clip.length, clip.fps) : null
 
   function readme() {
     const lines = [t('cutter.readme', { kind: t(`cutter.kind.${kind}`) }), '']
@@ -113,13 +191,37 @@ export default function Cutter() {
 
   async function onExport() {
     if (!source || !frame) return
-    setExporting(true)
+    setExportError(null)
     try {
-      const out = await renderSlices(source.image, sliceRects(kind, frame), format)
-      setFiles(out)
-      download(await buildZip(out, readme()), `${kind}.zip`)
+      let next: Result
+      if (source.type === 'still') {
+        setBusy({ stage: 'still' })
+        next = { files: await renderSlices(source.image, sliceRects(kind, frame), format) }
+      } else {
+        if (!timeline) return
+        const { encodeAnimated } = await import('../lib/encodeGif')
+        const encoded = await encodeAnimated(source, kind, frame, timeline, { limit: UPLOAD_LIMIT_BYTES, hex }, setBusy)
+        if (!encoded) {
+          setExportError('animTooBig')
+          return
+        }
+        next = {
+          files: encoded.parts.map((part) => ({
+            name: `${part.name}.gif`,
+            blob: new Blob([part.bytes as BlobPart], { type: 'image/gif' }),
+          })),
+          frames: encoded.frameCount,
+          fps: Math.round(100 / (encoded.delays[0] ?? 10)),
+          thinned: encoded.step > 1,
+        }
+      }
+      setResult(next)
+      setTab('result')
+      download(await buildZip(next.files, readme()), `${kind}.zip`)
+    } catch {
+      setExportError('failed')
     } finally {
-      setExporting(false)
+      setBusy(null)
     }
   }
 
@@ -129,8 +231,15 @@ export default function Cutter() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const poster = source ? (source.type === 'still' ? source.image : source.poster) : null
   const zoom = frame ? Math.round(100 / frame.scale) : 100
-  const tooBig = files?.some((f) => f.blob.size > UPLOAD_LIMIT_BYTES)
+  const tooBig = result?.files.some((f) => f.blob.size > UPLOAD_LIMIT_BYTES)
+  const seconds = (s: number) => t('cutter.clip.seconds', { s: s.toFixed(1) })
+
+  let busyLabel: string | null = null
+  if (busy?.stage === 'still') busyLabel = t('cutter.export.working')
+  else if (busy?.stage === 'frames') busyLabel = t('cutter.export.frames', { done: busy.done, total: busy.total })
+  else if (busy?.stage === 'encode') busyLabel = t(busy.attempt > 1 ? 'cutter.export.thinning' : 'cutter.export.encoding')
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
@@ -144,7 +253,7 @@ export default function Cutter() {
           <input
             ref={fileInput}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             hidden
             onChange={(e) => {
               onFile(e.target.files?.[0])
@@ -164,9 +273,6 @@ export default function Cutter() {
           </form>
           <p className="mt-2 text-xs text-slate-500">{t('cutter.source.linkHint')}</p>
           {error && <p className="mt-2 text-sm text-red-400">{t(`cutter.errors.${error}`)}</p>}
-          {source && /\.gif$/i.test(source.name) && (
-            <p className="mt-2 text-xs text-amber-300/80">{t('cutter.source.gifNote')}</p>
-          )}
         </Section>
 
         <Section title={t('cutter.kind.title')}>
@@ -205,20 +311,14 @@ export default function Cutter() {
                   className="w-full accent-accent"
                 />
               </label>
-              <label className="block">
-                <div className="mb-1 flex justify-between text-slate-400">
-                  <span>{t('cutter.frame.zoom')}</span>
-                  <span className="text-white">{zoom}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={400}
-                  value={zoom}
-                  onChange={(e) => changeFrame(zoomFrame(kind, frame, 100 / Number(e.target.value)))}
-                  className="w-full accent-accent"
-                />
-              </label>
+              <RangeRow
+                label={t('cutter.frame.zoom')}
+                display={`${zoom}%`}
+                value={zoom}
+                min={5}
+                max={400}
+                onChange={(value) => changeFrame(zoomFrame(kind, frame, 100 / value))}
+              />
               <div className="flex gap-2">
                 {isProfileBackground(source.width) && (
                   <button
@@ -244,30 +344,100 @@ export default function Cutter() {
           </Section>
         )}
 
-        <Section title={t('cutter.format.title')}>
-          <div className="flex gap-2">
-            {(['png', 'jpg'] as const).map((f) => (
-              <button key={f} type="button" onClick={() => setFormat(f)} className={toggleClass(f === format)}>
-                <span className="text-sm uppercase">{f}</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-slate-500">{t('cutter.format.hint')}</p>
-        </Section>
+        {source?.type === 'animated' && clip && timeline && (
+          <Section title={t('cutter.clip.title')}>
+            <div className="space-y-3 text-sm">
+              <RangeRow
+                label={t('cutter.clip.start')}
+                display={seconds(clip.start)}
+                value={clip.start}
+                min={0}
+                max={Math.max(0, source.duration - MIN_CLIP_SECONDS)}
+                step={0.1}
+                onChange={(start) => changeClip({ start })}
+              />
+              <RangeRow
+                label={t('cutter.clip.length')}
+                display={seconds(clip.length)}
+                value={clip.length}
+                min={MIN_CLIP_SECONDS}
+                max={Math.max(MIN_CLIP_SECONDS, Math.min(MAX_CLIP_SECONDS, source.duration - clip.start))}
+                step={0.1}
+                onChange={(length) => changeClip({ length })}
+              />
+              <div>
+                <div className="mb-1 text-slate-400">{t('cutter.clip.fps')}</div>
+                <div className="flex gap-1">
+                  {FPS_OPTIONS.map((fps) => (
+                    <button
+                      key={fps}
+                      type="button"
+                      onClick={() => changeClip({ fps })}
+                      className={`flex-1 rounded-md border px-2 py-1 text-center ${
+                        fps === clip.fps ? 'border-accent bg-accent/10 text-white' : 'border-line text-slate-400'
+                      }`}
+                    >
+                      {fps}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">{t('cutter.clip.frames', { count: timeline.timestamps.length })}</p>
+              <label className="flex items-start gap-2 text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={hex}
+                  onChange={(e) => {
+                    setHex(e.target.checked)
+                    resetResult()
+                  }}
+                  className="mt-1 accent-accent"
+                />
+                <span>
+                  {t('cutter.clip.hex')}
+                  <span className="block text-xs text-slate-500">{t('cutter.clip.hexHint')}</span>
+                </span>
+              </label>
+            </div>
+          </Section>
+        )}
+
+        {source?.type !== 'animated' && (
+          <Section title={t('cutter.format.title')}>
+            <div className="flex gap-2">
+              {(['png', 'jpg'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setFormat(f)
+                    resetResult()
+                  }}
+                  className={toggleClass(f === format)}
+                >
+                  <span className="text-sm uppercase">{f}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{t('cutter.format.hint')}</p>
+          </Section>
+        )}
 
         <button
           type="button"
           onClick={onExport}
-          disabled={!source || !frame || exporting}
+          disabled={!source || !frame || !!busy}
           className="w-full rounded-lg bg-accent px-4 py-2.5 font-medium text-ink disabled:opacity-50"
         >
-          {exporting ? t('cutter.export.working') : t('cutter.export.button')}
+          {busyLabel ?? t(source?.type === 'animated' ? 'cutter.export.gifButton' : 'cutter.export.button')}
         </button>
 
-        {files && (
+        {exportError && <p className="text-sm text-red-400">{t(`cutter.export.${exportError}`)}</p>}
+
+        {result && (
           <div className="space-y-2">
             <ul className="space-y-1 text-sm">
-              {files.map((f) => (
+              {result.files.map((f) => (
                 <li key={f.name} className="flex justify-between">
                   <span className="text-slate-300">{f.name}</span>
                   <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
@@ -276,11 +446,15 @@ export default function Cutter() {
                 </li>
               ))}
             </ul>
+            {result.frames ? (
+              <p className="text-xs text-slate-500">{t('cutter.result.info', { frames: result.frames, fps: result.fps })}</p>
+            ) : null}
+            {result.thinned && <p className="text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
             {tooBig && <p className="text-sm text-red-400">{t('cutter.export.tooBig')}</p>}
           </div>
         )}
 
-        <details open={!!files} className="rounded-lg border border-line bg-panel p-4 text-sm">
+        <details open={!!result} className="rounded-lg border border-line bg-panel p-4 text-sm">
           <summary className="cursor-pointer text-slate-300">{t('cutter.upload.title')}</summary>
           <div className="mt-3 space-y-2 text-slate-400">
             <p>
@@ -305,11 +479,32 @@ export default function Cutter() {
       <section
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
-        className="relative h-[calc(100vh-9rem)] min-h-[480px] overflow-hidden rounded-xl border border-line bg-panel/40"
+        className="relative h-[calc(100vh-9rem)] min-h-[480px] overflow-hidden rounded-xl border border-line bg-panel/40 lg:sticky lg:top-4 lg:self-start"
       >
-        {source && frame ? (
+        {result && (
+          <div className="absolute left-3 top-3 z-10 flex gap-1 rounded-lg bg-ink/80 p-1 text-sm">
+            {(['edit', 'result'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setTab(v)}
+                className={`rounded px-3 py-1 ${tab === v ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                {t(`cutter.result.${v}`)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {result && tab === 'result' ? (
+          <ShowcasePreview
+            kind={kind}
+            files={result.files}
+            caption={result.frames ? t('cutter.result.sync') : undefined}
+          />
+        ) : source && poster && frame ? (
           <CropCanvas
-            image={source.image}
+            image={poster}
             imageWidth={source.width}
             imageHeight={source.height}
             kind={kind}

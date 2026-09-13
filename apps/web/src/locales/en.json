@@ -10,7 +10,7 @@
     "tools": {
       "cutter": {
         "title": "Showcase cutter",
-        "text": "Artwork, featured artwork, screenshots and workshop. Pictures for now, GIFs and videos are next."
+        "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF, a video or an animated Steam background."
       },
       "optimizer": {
         "title": "GIFs under 5 MB",
@@ -37,16 +37,15 @@
   "cutter": {
     "title": "Showcase cutter",
     "source": {
-      "title": "Picture",
+      "title": "Source",
       "file": "Choose a file",
-      "linkPlaceholder": "Link to a picture or a profile",
+      "linkPlaceholder": "Link to a file or a profile",
       "load": "Load",
-      "linkHint": "Paste a direct link to a picture or a Steam profile link, then its background is used.",
-      "gifNote": "GIFs are cut like a regular picture for now, animation comes later."
+      "linkHint": "Paste a direct link to a picture, GIF or video. With a Steam profile link its background is used, animated ones too."
     },
     "empty": {
-      "title": "Drop a picture here",
-      "text": "Or choose a file on the left. A Steam background, an artwork or a screenshot will do."
+      "title": "Drop a file here",
+      "text": "Or choose one on the left: a picture, a GIF or a video. A Steam background, an artwork or a clip will do."
     },
     "kind": {
       "title": "Showcase",
@@ -58,7 +57,7 @@
       "screenshotSize": "506 + 100 px",
       "workshop": "Workshop",
       "workshopSize": "5 parts",
-      "workshopNote": "Steam crops long workshop parts to a square. Showing them in full needs the hex patch, it comes together with GIF support."
+      "workshopNote": "Steam crops long workshop parts to a square. For GIFs the hex patch fixes that, PNG and JPG don't have it yet."
     },
     "frame": {
       "title": "Position",
@@ -69,15 +68,38 @@
       "position": "X {{x}}, Y {{y}}",
       "hint": "Drag the frame with the mouse, scroll to zoom, arrow keys move it by a pixel, 10 with Shift."
     },
+    "clip": {
+      "title": "Animation",
+      "start": "Start",
+      "length": "Length",
+      "fps": "Frames per second",
+      "seconds": "{{s}} s",
+      "frames": "Frames: {{count}}. Fewer frames means better quality at the same size.",
+      "hex": "Hex patch",
+      "hexHint": "Needed for the workshop, otherwise Steam crops the parts to a square. Optional for artwork."
+    },
     "format": {
       "title": "Format",
       "hint": "PNG is lossless but heavier. If a file doesn't fit into 5 MB, use JPG."
     },
     "export": {
       "button": "Download ZIP",
+      "gifButton": "Make GIFs",
       "working": "Cutting…",
+      "frames": "Frames {{done}} of {{total}}…",
+      "encoding": "Compressing GIFs…",
+      "thinning": "Didn't fit into 5 MB, dropping some frames…",
       "size": "{{mb}} MB",
-      "tooBig": "Some files are over 5 MB and Steam won't take them. Try JPG or a smaller height."
+      "tooBig": "Some files are over 5 MB and Steam won't take them. Try JPG or a smaller height.",
+      "animTooBig": "Even with fewer colors and frames it doesn't fit into 5 MB. Make it shorter, lower the frame rate or the height.",
+      "failed": "Couldn't build the files. Try again or use another source."
+    },
+    "result": {
+      "edit": "Frame",
+      "result": "Result",
+      "info": "{{frames}} frames, about {{fps}} per second.",
+      "thinned": "Some frames were dropped to fit the limit.",
+      "sync": "If the parts play out of sync after uploading, refresh your profile page. Once everything is cached they play together."
     },
     "upload": {
       "title": "How to upload to Steam",
@@ -91,8 +113,9 @@
     },
     "readme": "Files for the \"{{kind}}\" showcase",
     "errors": {
-      "unsupported_link": "Can't read this link. Use a direct link to a picture or a Steam profile.",
-      "load_failed": "Couldn't load the picture. If it opens in the browser, download it and choose it as a file.",
+      "unsupported_link": "Can't read this link. Use a direct link to a file or a Steam profile.",
+      "load_failed": "Couldn't load the file. If it opens in the browser, download it and choose it from disk.",
+      "cannot_decode": "The browser couldn't open this video. Try another format or Chrome.",
       "no_background": "This profile has no Points Shop background.",
       "not_found": "Profile not found.",
       "steam_unavailable": "Steam isn't responding, try again later."

@@ -1,0 +1,62 @@
+{
+  "nav": {
+    "check": "Check"
+  },
+  "home": {
+    "title": "Steam profile design without the hassle",
+    "lead": "Cut backgrounds, pictures and videos for showcases, squeeze GIFs under the Steam limit and see how it all looks on your profile. Everything runs in your browser.",
+    "soon": "soon",
+    "tools": {
+      "cutter": {
+        "title": "Showcase cutter",
+        "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF or a video."
+      },
+      "optimizer": {
+        "title": "GIFs under 5 MB",
+        "text": "Every part fits the limit and all parts share the same frames, so the animation stays in sync."
+      },
+      "preview": {
+        "title": "Profile preview",
+        "text": "See the result on your own profile by link or SteamID before uploading anything."
+      },
+      "backgrounds": {
+        "title": "Backgrounds and frames",
+        "text": "Points Shop catalog and backgrounds that match the colors of your art."
+      },
+      "infobox": {
+        "title": "Info box",
+        "text": "BBCode, ASCII art and centered text."
+      },
+      "helper": {
+        "title": "Upload helper",
+        "text": "A userscript that fills in the right codes on the Steam upload page for you."
+      }
+    }
+  },
+  "check": {
+    "title": "Steam connection check",
+    "hint": "Paste a profile link, the name from a link or a SteamID64.",
+    "placeholder": "https://steamcommunity.com/id/...",
+    "submit": "Check",
+    "loading": "Loading…",
+    "level": "Level",
+    "theme": "Theme",
+    "background": "Background",
+    "noBackground": "This profile has no Points Shop background.",
+    "canvasOk": "Background was drawn to canvas, CORS is fine.",
+    "canvasFail": "Could not read the background from canvas.",
+    "raw": "Server response",
+    "errors": {
+      "bad_input": "That doesn't look like a link or a SteamID.",
+      "vanity_needs_key": "Short links don't work yet, use a SteamID64.",
+      "not_found": "Profile not found.",
+      "steam_unavailable": "Steam isn't responding, try again later.",
+      "unknown": "Something went wrong."
+    }
+  },
+  "footer": {
+    "note": "Not affiliated with Valve or Steam.",
+    "source": "Source on GitHub"
+  },
+  "notFound": "Page not found."
+}

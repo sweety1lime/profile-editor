@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0b0e14;
+  --color-panel: #131823;
+  --color-line: #232a38;
+  --color-accent: #7c9cff;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+}
+
+body {
+  @apply bg-ink text-slate-200 antialiased;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fitFrame, sliceFileName, sliceRects, zoomFrame } from './crop'
-import { PROFILE_OFFSET_X } from './geometry'
+import { PROFILE_OFFSET } from './layout'
 
 describe('sliceRects', () => {
   it('maps artwork slices onto the source', () => {
@@ -28,7 +28,8 @@ describe('sliceFileName', () => {
 
 describe('fitFrame', () => {
   it('puts a profile background where the showcase sits on the page', () => {
-    expect(fitFrame('artwork', 1920, 1080)).toEqual({ x: PROFILE_OFFSET_X.artwork, y: 0, scale: 1, height: 800 })
+    const { x, y } = PROFILE_OFFSET.artwork
+    expect(fitFrame('artwork', 1920, 1080)).toEqual({ x, y, scale: 1, height: 1080 - y })
   })
 
   it('fits any other image by width', () => {

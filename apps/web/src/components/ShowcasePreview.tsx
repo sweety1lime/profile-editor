@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { SHOWCASES, type ShowcaseKind } from '@profile-editor/core'
 import type { ExportedFile } from '../lib/exportSlices'
+import { useObjectUrls } from '../lib/useObjectUrl'
 
 interface Props {
   kind: ShowcaseKind
@@ -10,10 +11,8 @@ interface Props {
 
 // Показывает части в тех же размерах и с теми же зазорами, что и на странице профиля
 export default function ShowcasePreview({ kind, files, caption }: Props) {
-  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f.blob)), [files])
-
-  useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls])
-
+  const blobs = useMemo(() => files.map((f) => f.blob), [files])
+  const urls = useObjectUrls(blobs)
   const { slices } = SHOWCASES[kind]
 
   return (

@@ -10,6 +10,7 @@ export interface StillSource {
   width: number
   height: number
   name: string
+  blob: Blob
 }
 
 export type Source = StillSource | AnimatedSource
@@ -51,7 +52,7 @@ async function fromBlob(blob: Blob, name: string): Promise<Source> {
   }
   try {
     const image = await createImageBitmap(blob)
-    return { type: 'still', image, width: image.width, height: image.height, name }
+    return { type: 'still', image, width: image.width, height: image.height, name, blob }
   } catch {
     throw new SourceError('load_failed')
   }

@@ -1,7 +1,13 @@
 {
   "nav": {
     "cutter": "Cutter",
+    "preview": "Preview",
+    "guide": "How to upload",
     "check": "Check"
+  },
+  "common": {
+    "copy": "Copy code",
+    "copied": "Copied"
   },
   "home": {
     "title": "Steam profile design without the hassle",
@@ -66,7 +72,7 @@
       "alignProfile": "Like on profile",
       "fitWidth": "Fit width",
       "position": "X {{x}}, Y {{y}}",
-      "hint": "Drag the frame with the mouse, scroll to zoom, arrow keys move it by a pixel, 10 with Shift."
+      "hint": "Drag the frame with the mouse, scroll to zoom, arrow keys move it by a pixel, 10 with Shift. \"Like on profile\" puts the showcase where it lands when it's the first one."
     },
     "clip": {
       "title": "Animation",
@@ -99,7 +105,8 @@
       "result": "Result",
       "info": "{{frames}} frames, about {{fps}} per second.",
       "thinned": "Some frames were dropped to fit the limit.",
-      "sync": "If the parts play out of sync after uploading, refresh your profile page. Once everything is cached they play together."
+      "sync": "If the parts play out of sync after uploading, refresh your profile page. Once everything is cached they play together.",
+      "toPreview": "Show on profile"
     },
     "upload": {
       "title": "How to upload to Steam",
@@ -107,9 +114,7 @@
       "step2": "2. Pick the file and open the browser console: Ctrl+Shift+J in Chrome, Ctrl+Shift+K in Firefox. In Firefox type allow pasting first.",
       "step3": "3. Paste the code below, press Enter and save. If there are several files, upload them in the numbered order.",
       "note": "In the artwork list the picture will look like a thin line, that's expected.",
-      "workshopNote": "Then add each file to favorites and pick them in the workshop showcase in the same order.",
-      "copy": "Copy code",
-      "copied": "Copied"
+      "workshopNote": "Then add each file to favorites and pick them in the workshop showcase in the same order."
     },
     "readme": "Files for the \"{{kind}}\" showcase",
     "errors": {
@@ -119,6 +124,122 @@
       "no_background": "This profile has no Points Shop background.",
       "not_found": "Profile not found.",
       "steam_unavailable": "Steam isn't responding, try again later."
+    }
+  },
+  "preview": {
+    "title": "Profile preview",
+    "defaultName": "Your name",
+    "profile": {
+      "title": "Profile",
+      "linkPlaceholder": "Profile link or SteamID",
+      "load": "Fetch",
+      "hint": "Pulls the name, avatar, frame, level, background and theme. Private profiles only give the name and avatar.",
+      "name": "Name",
+      "level": "Level",
+      "summary": "Summary",
+      "avatar": "Avatar from file",
+      "theme": "Theme"
+    },
+    "themes": {
+      "DefaultTheme": "Default",
+      "SummerTheme": "Summer",
+      "MidnightTheme": "Midnight",
+      "SteelTheme": "Steel",
+      "CosmicTheme": "Cosmic",
+      "DarkModeTheme": "Dark"
+    },
+    "background": {
+      "title": "Background",
+      "file": "Own background",
+      "fromCutter": "From cutter",
+      "fromProfile": "From profile",
+      "fullWidth": "Full screen",
+      "fullWidthHint": "Steam stretches the background to the window width in this mode, so the cut parts drift. For aligned showcases keep the background at original size.",
+      "width": "Window width"
+    },
+    "showcases": {
+      "title": "Showcases",
+      "empty": "Nothing here yet. Cut something and press \"Show on profile\", or add ready files.",
+      "add": "Add files",
+      "files": "files: {{count}}",
+      "up": "Up",
+      "down": "Down",
+      "remove": "Remove"
+    },
+    "view": {
+      "fit": "Fit",
+      "actual": "1:1"
+    },
+    "replica": {
+      "level": "Level",
+      "offline": "Currently Offline",
+      "artwork": "Artwork Showcase",
+      "featured": "Featured Artwork",
+      "screenshot": "Screenshot Showcase",
+      "workshop": "Workshop Showcase"
+    }
+  },
+  "guide": {
+    "title": "How to upload a design to Steam",
+    "lead": "Steam doesn't let you upload long pictures directly, so on the upload page you paste a short code into the browser console. Sounds scary, takes a minute.",
+    "before": {
+      "title": "Before you start",
+      "items": [
+        "Showcases unlock at Steam level 10, every 10 levels after that give one more.",
+        "Your profile and artwork must be public, otherwise visitors won't see the showcase.",
+        "The profile background must be at original size, not full screen, otherwise the parts won't line up.",
+        "Every file must be under 5 MB."
+      ]
+    },
+    "console": "Open the console with Ctrl+Shift+J in Chrome and Edge, Ctrl+Shift+K in Firefox. Firefox will ask you to type allow pasting first, that's normal.",
+    "code": "Console code",
+    "openPage": "Open the upload page",
+    "artwork": {
+      "title": "Artwork and featured artwork",
+      "steps": [
+        "Open the artwork upload page.",
+        "Pick the file, type any title and tick the box saying it's your work.",
+        "Open the console, paste the code and press Enter.",
+        "Press \"Save and continue\". If there are two parts, repeat for the second one.",
+        "In profile editing add the showcase and pick the pictures: the wide one in the main slot, the narrow one on the right."
+      ],
+      "note": "In the artwork list the picture looks like a thin line. That's the code at work, it's expected."
+    },
+    "screenshot": {
+      "title": "Screenshots",
+      "steps": [
+        "Open the same upload page.",
+        "Pick the file, type a title and tick that it's your work.",
+        "Paste the screenshot code into the console, press Enter, then save.",
+        "In profile editing pick the uploaded pictures in the screenshot showcase."
+      ],
+      "note": "The code differs from the artwork one by a bit at the end, don't mix them up."
+    },
+    "workshop": {
+      "title": "Workshop",
+      "steps": [
+        "Open the same upload page.",
+        "Pick the file, open the console, paste the code and press Enter.",
+        "Save. Do this for all five parts in order.",
+        "Open each uploaded item and add it to favorites.",
+        "Pick them in the workshop showcase in the same order."
+      ],
+      "note": "Long parts need the hex patch. The cutter applies it for you, and there's a tool below for ready GIFs."
+    },
+    "hex": {
+      "title": "Hex patch for ready GIFs",
+      "text": "Changes the last byte of a GIF, so Steam shows it without cropping and keeps transparency. Files never leave your browser.",
+      "pick": "Choose GIFs",
+      "notGif": "not a GIF, skipped"
+    },
+    "missing": {
+      "title": "Showcase didn't show up?",
+      "items": [
+        "Check your level, showcases unlock at 10.",
+        "The artwork must be visible to everyone, not only friends.",
+        "If the parts are misplaced, make sure the background isn't full screen. If you cut with \"Like on profile\", the showcase has to be the first one.",
+        "If GIFs play out of sync, refresh the page a couple of times. Until the files are cached they start at different moments."
+      ]
     }
   },
   "check": {

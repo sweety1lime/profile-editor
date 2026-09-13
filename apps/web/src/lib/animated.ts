@@ -9,6 +9,7 @@ export interface AnimatedSource {
   duration: number
   fps: number
   poster: CanvasImageSource
+  blob: Blob
   frames(timestamps: number[]): AsyncGenerator<CanvasImageSource>
   dispose(): void
 }
@@ -23,12 +24,13 @@ const MAX_GIF_FRAMES = 500
 // Как и браузеры, считаем слишком короткие задержки за 100 мс
 const normalizeDelay = (ms: number) => (ms < 20 ? 100 : ms)
 
-function gifSource(list: GifFrame[], name: string): AnimatedSource {
+function gifSource(list: GifFrame[], name: string, blob: Blob): AnimatedSource {
   const first = list[0]!
   const duration = list[list.length - 1]!.end
   return {
     type: 'animated',
     name,
+    blob,
     width: first.image.width,
     height: first.image.height,
     duration,
@@ -102,7 +104,7 @@ export async function openGif(blob: Blob, name: string): Promise<AnimatedSource 
     for (const f of list) f.image.close()
     return null
   }
-  return gifSource(list, name)
+  return gifSource(list, name, blob)
 }
 
 export async function openVideo(blob: Blob, name: string): Promise<AnimatedSource> {
@@ -132,6 +134,7 @@ export async function openVideo(blob: Blob, name: string): Promise<AnimatedSourc
     return {
       type: 'animated',
       name,
+      blob,
       width,
       height,
       duration,

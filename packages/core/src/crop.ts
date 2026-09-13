@@ -1,4 +1,5 @@
-import { PROFILE_BACKGROUND_WIDTH, PROFILE_OFFSET_X, SHOWCASES, type ShowcaseKind } from './geometry'
+import { PROFILE_BACKGROUND_WIDTH, SHOWCASES, type ShowcaseKind } from './geometry'
+import { PROFILE_OFFSET } from './layout'
 
 // Положение витрины на исходной картинке:
 // x, y — левый верхний угол в пикселях исходника,
@@ -60,15 +61,11 @@ export function sliceRects(kind: ShowcaseKind, frame: Frame): SliceRect[] {
   })
 }
 
-// Фон профиля ставим туда, где витрина окажется на странице, остальное вписываем по ширине
+// Фон профиля ставим туда, где окажется первая витрина на странице, остальное вписываем по ширине
 export function fitFrame(kind: ShowcaseKind, imageWidth: number, imageHeight: number): Frame {
   if (isProfileBackground(imageWidth)) {
-    return {
-      x: PROFILE_OFFSET_X[kind],
-      y: 0,
-      scale: 1,
-      height: Math.min(imageHeight, DEFAULT_PROFILE_HEIGHT),
-    }
+    const { x, y } = PROFILE_OFFSET[kind]
+    return { x, y, scale: 1, height: clampHeight(Math.min(imageHeight - y, DEFAULT_PROFILE_HEIGHT)) }
   }
   const scale = imageWidth / SHOWCASES[kind].width
   return { x: 0, y: 0, scale, height: clampHeight(imageHeight / scale) }

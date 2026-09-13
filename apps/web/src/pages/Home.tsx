@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 const TOOLS = [
   { id: 'cutter', path: 'cutter' },
   { id: 'optimizer' },
-  { id: 'preview' },
+  { id: 'preview', path: 'preview' },
   { id: 'backgrounds' },
   { id: 'infobox' },
   { id: 'helper' },

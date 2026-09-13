@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
+import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   FPS_OPTIONS,
   MAX_CLIP_SECONDS,
-  PROFILE_OFFSET_X,
+  PROFILE_OFFSET,
   UPLOAD_LIMIT_BYTES,
   UPLOAD_PAGE,
   UPLOAD_SNIPPETS,
@@ -17,8 +18,10 @@ import {
   type Frame,
   type ShowcaseKind,
 } from '@profile-editor/core'
+import CopyButton from '../components/CopyButton'
 import CropCanvas from '../components/CropCanvas'
 import ShowcasePreview from '../components/ShowcasePreview'
+import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
 import type { Progress } from '../lib/encodeGif'
@@ -103,7 +106,8 @@ export default function Cutter() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [tab, setTab] = useState<'edit' | 'result'>('edit')
-  const [copied, setCopied] = useState(false)
+  const navigate = useNavigate()
+  const { lang } = useParams()
   const fileInput = useRef<HTMLInputElement>(null)
 
   // старый исходник освобождаем, когда пришёл новый
@@ -160,7 +164,7 @@ export default function Cutter() {
     if (!source || !frame) return
     setFrame(
       isProfileBackground(source.width)
-        ? { ...frame, x: PROFILE_OFFSET_X[next] }
+        ? { ...frame, x: PROFILE_OFFSET[next].x }
         : { ...fitFrame(next, source.width, source.height), y: frame.y },
     )
   }
@@ -225,10 +229,14 @@ export default function Cutter() {
     }
   }
 
-  async function copyCode() {
-    await navigator.clipboard.writeText(UPLOAD_SNIPPETS[kind])
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  // Отдаём готовые части в превью, а если резали фон профиля, то и сам фон
+  function sendToPreview() {
+    if (!result || !source) return
+    showcaseStore.addShowcase(kind, result.files)
+    if (isProfileBackground(source.width)) {
+      showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })
+    }
+    navigate(`/${lang}/preview`)
   }
 
   const poster = source ? (source.type === 'still' ? source.image : source.poster) : null
@@ -324,7 +332,7 @@ export default function Cutter() {
                   <button
                     type="button"
                     className={secondaryButton}
-                    onClick={() => changeFrame({ ...frame, x: PROFILE_OFFSET_X[kind], scale: 1 })}
+                    onClick={() => changeFrame({ ...frame, ...PROFILE_OFFSET[kind], scale: 1 })}
                   >
                     {t('cutter.frame.alignProfile')}
                   </button>
@@ -451,6 +459,9 @@ export default function Cutter() {
             ) : null}
             {result.thinned && <p className="text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
             {tooBig && <p className="text-sm text-red-400">{t('cutter.export.tooBig')}</p>}
+            <button type="button" onClick={sendToPreview} className={`${secondaryButton} w-full`}>
+              {t('cutter.result.toPreview')}
+            </button>
           </div>
         )}
 
@@ -466,9 +477,7 @@ export default function Cutter() {
             <p>{t('cutter.upload.step2')}</p>
             <p>{t('cutter.upload.step3')}</p>
             <pre className="overflow-x-auto rounded bg-ink p-2 text-xs text-slate-300">{UPLOAD_SNIPPETS[kind]}</pre>
-            <button type="button" onClick={copyCode} className={secondaryButton}>
-              {copied ? t('cutter.upload.copied') : t('cutter.upload.copy')}
-            </button>
+            <CopyButton text={UPLOAD_SNIPPETS[kind]} />
             <p className="text-xs text-slate-500">
               {t(kind === 'workshop' ? 'cutter.upload.workshopNote' : 'cutter.upload.note')}
             </p>

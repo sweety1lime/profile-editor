@@ -33,6 +33,12 @@ export default function Layout() {
             <NavLink to={`/${lang}/cutter`} className={navClass}>
               {t('nav.cutter')}
             </NavLink>
+            <NavLink to={`/${lang}/preview`} className={navClass}>
+              {t('nav.preview')}
+            </NavLink>
+            <NavLink to={`/${lang}/guide`} className={navClass}>
+              {t('nav.guide')}
+            </NavLink>
             <NavLink to={`/${lang}/check`} className={navClass}>
               {t('nav.check')}
             </NavLink>

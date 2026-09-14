@@ -202,6 +202,7 @@
       "title": "Layers",
       "addImage": "Picture",
       "addText": "Text",
+      "addEffect": "Effect",
       "empty": "Add a character picture or a caption. A PNG with a transparent background works best.",
       "hide": "Hide",
       "show": "Show",
@@ -260,6 +261,21 @@
         "quality": "RMBG-1.4 model by BRIA AI, non-commercial use only. Good with anime characters and objects. Downloaded once, then taken from the browser cache.",
         "fast": "MODNet is trained on photos of people: it doesn't see anime or objects, use Quality for those. Downloaded once, then taken from the browser cache."
       }
+    },
+    "effects": {
+      "snow": "Snow",
+      "rain": "Rain",
+      "sakura": "Sakura",
+      "embers": "Embers",
+      "stars": "Stars"
+    },
+    "effect": {
+      "density": "Density",
+      "speed": "Speed",
+      "wind": "Wind",
+      "size": "Particle size",
+      "shuffle": "Shuffle",
+      "hint": "The effect covers the whole showcase. Layers above it in the list are drawn over the particles."
     },
     "animations": {
       "none": "None",

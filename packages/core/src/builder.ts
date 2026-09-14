@@ -41,7 +41,26 @@ export interface TextLayer extends LayerBase {
   glow: number
 }
 
-export type Layer = ImageLayer | TextLayer
+export type EffectKind = 'snow' | 'rain' | 'sakura' | 'embers' | 'stars'
+
+export const EFFECTS: EffectKind[] = ['snow', 'rain', 'sakura', 'embers', 'stars']
+
+// Частицы на всю витрину. Положение, размер и поворот из LayerBase у эффекта не используются
+export interface EffectLayer extends LayerBase {
+  type: 'effect'
+  effect: EffectKind
+  // от 0 до 1
+  density: number
+  speed: number
+  // множитель размера частиц
+  size: number
+  // от -1 до 1, куда сносит частицы
+  wind: number
+  color: string
+  seed: number
+}
+
+export type Layer = ImageLayer | TextLayer | EffectLayer
 
 export interface Pose {
   x: number
@@ -83,7 +102,9 @@ export function poseAt(layer: LayerBase, t: number): Pose {
 }
 
 export const hasAnimation = (layers: Layer[]) =>
-  layers.some((layer) => layer.visible && layer.animation !== 'none' && layer.strength > 0)
+  layers.some(
+    (layer) => layer.visible && (layer.type === 'effect' || (layer.animation !== 'none' && layer.strength > 0)),
+  )
 
 // Попадает ли точка в слой с учётом поворота и масштаба. width и height — собственный размер слоя
 export function containsPoint(pose: Pose, width: number, height: number, px: number, py: number): boolean {
@@ -95,7 +116,7 @@ export function containsPoint(pose: Pose, width: number, height: number, px: num
   return Math.abs(lx) <= (width * pose.scale) / 2 && Math.abs(ly) <= (height * pose.scale) / 2
 }
 
-// Верхний видимый слой под точкой
+// Верхний видимый слой под точкой. Эффекты лежат на всей витрине, мышью их не выбираем
 export function layerAt(
   layers: Layer[],
   sizeOf: (layer: Layer) => { width: number; height: number },
@@ -104,7 +125,7 @@ export function layerAt(
 ): Layer | null {
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i]!
-    if (!layer.visible) continue
+    if (!layer.visible || layer.type === 'effect') continue
     const { width, height } = sizeOf(layer)
     if (containsPoint(poseAt(layer, 0), width, height, px, py)) return layer
   }

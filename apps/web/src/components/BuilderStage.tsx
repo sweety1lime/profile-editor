@@ -90,7 +90,7 @@ export default function BuilderStage(props: Props) {
       for (const r of rects) ctx.strokeRect(ox + r.sx * viewScale, oy + r.sy * viewScale, r.sw * viewScale, r.sh * viewScale)
 
       const layer = scene.layers.find((l) => l.id === selectedId)
-      if (layer?.visible) {
+      if (layer?.visible && layer.type !== 'effect') {
         const pose = poseAt(layer, 0)
         const own = layerSize(layer)
         const w = own.width * pose.scale * viewScale
@@ -128,7 +128,7 @@ export default function BuilderStage(props: Props) {
       const { scene, background, selectedId, onLayerChange, onBackgroundChange } = latest.current
       const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP
       const layer = scene.layers.find((l) => l.id === selectedId)
-      if (layer) onLayerChange(layer.id, { scale: Math.min(20, Math.max(0.02, layer.scale * factor)) })
+      if (layer && layer.type !== 'effect') onLayerChange(layer.id, { scale: Math.min(20, Math.max(0.02, layer.scale * factor)) })
       else if (background) onBackgroundChange(zoomFrame(scene.kind, background.frame, background.frame.scale / factor))
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
@@ -172,6 +172,7 @@ export default function BuilderStage(props: Props) {
       props.onRemove(layer.id)
       return
     }
+    if (layer.type === 'effect') return
     const step = e.shiftKey ? 10 : 1
     const moves: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],

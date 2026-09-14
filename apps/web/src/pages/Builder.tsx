@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ANIMATIONS,
+  EFFECTS,
+  EFFECT_COLORS,
   FPS_OPTIONS,
   PROFILE_OFFSET,
   UPLOAD_LIMIT_BYTES,
@@ -17,6 +19,7 @@ import {
   packProject,
   sliceRects,
   unpackProject,
+  type EffectLayer,
   type Frame,
   type ImageLayer,
   type Layer,
@@ -49,6 +52,7 @@ interface Result {
 }
 
 const newId = () => crypto.randomUUID()
+const newSeed = () => Math.floor(Math.random() * 2 ** 31)
 
 // проект сохраняется после небольшой паузы в правках
 const SAVE_DELAY = 600
@@ -269,6 +273,33 @@ export default function Builder() {
       visible: true,
       animation: 'none',
       strength: 0.6,
+    }
+    setLayers((list) => [...list, layer])
+    setSelectedId(id)
+    resetResult()
+  }
+
+  function addEffect() {
+    const id = newId()
+    const layer: EffectLayer = {
+      id,
+      type: 'effect',
+      name: 'snow',
+      effect: 'snow',
+      density: 0.5,
+      speed: 0.5,
+      size: 1,
+      wind: 0.2,
+      color: EFFECT_COLORS.snow,
+      seed: newSeed(),
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      animation: 'none',
+      strength: 0,
     }
     setLayers((list) => [...list, layer])
     setSelectedId(id)
@@ -606,7 +637,12 @@ export default function Builder() {
   else if (busy?.stage === 'frames') busyLabel = t('cutter.export.frames', { done: busy.done, total: busy.total })
   else if (busy?.stage === 'encode') busyLabel = t(busy.attempt > 1 ? 'cutter.export.thinning' : 'cutter.export.encoding')
 
-  const layerLabel = (layer: Layer) => (layer.type === 'text' ? layer.text.split('\n')[0] || '…' : layer.name)
+  const layerLabel = (layer: Layer) => {
+    if (layer.type === 'text') return layer.text.split('\n')[0] || '…'
+    if (layer.type === 'effect') return t(`builder.effects.${layer.effect}`)
+    return layer.name
+  }
+  const layerIcon = { text: 'T', image: '▣', effect: '✦' }
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[340px_1fr]">
@@ -713,6 +749,9 @@ export default function Builder() {
             <button type="button" onClick={addText} className={`${secondaryButton} flex-1`}>
               + {t('builder.layers.addText')}
             </button>
+            <button type="button" onClick={addEffect} className={`${secondaryButton} flex-1`}>
+              + {t('builder.layers.addEffect')}
+            </button>
           </div>
           <input
             ref={imageInput}
@@ -734,7 +773,7 @@ export default function Builder() {
                 }`}
               >
                 <button type="button" onClick={() => setSelectedId(layer.id)} className="min-w-0 flex-1 truncate text-left text-slate-200">
-                  <span className="mr-2 text-xs text-slate-500">{layer.type === 'text' ? 'T' : '▣'}</span>
+                  <span className="mr-2 text-xs text-slate-500">{layerIcon[layer.type]}</span>
                   {layerLabel(layer)}
                 </button>
                 <button
@@ -893,22 +932,92 @@ export default function Builder() {
                   />
                 </>
               )}
-              <RangeRow
-                label={t('builder.layer.scale')}
-                display={`${Math.round(selected.scale * 100)}%`}
-                value={Math.round(selected.scale * 100)}
-                min={2}
-                max={400}
-                onChange={(value) => updateLayer(selected.id, { scale: value / 100 })}
-              />
-              <RangeRow
-                label={t('builder.layer.rotation')}
-                display={`${Math.round(selected.rotation)}°`}
-                value={selected.rotation}
-                min={-180}
-                max={180}
-                onChange={(rotation) => updateLayer(selected.id, { rotation })}
-              />
+              {selected.type === 'effect' && (
+                <>
+                  <div className="flex flex-wrap gap-1" data-effects>
+                    {EFFECTS.map((effect) => (
+                      <button
+                        key={effect}
+                        type="button"
+                        onClick={() => updateLayer(selected.id, { effect, color: EFFECT_COLORS[effect] })}
+                        className={chipClass(effect === selected.effect)}
+                      >
+                        {t(`builder.effects.${effect}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <RangeRow
+                    label={t('builder.effect.density')}
+                    display={`${Math.round(selected.density * 100)}%`}
+                    value={Math.round(selected.density * 100)}
+                    min={0}
+                    max={100}
+                    onChange={(value) => updateLayer(selected.id, { density: value / 100 })}
+                  />
+                  {selected.effect !== 'stars' && (
+                    <>
+                      <RangeRow
+                        label={t('builder.effect.speed')}
+                        display={`${Math.round(selected.speed * 100)}%`}
+                        value={Math.round(selected.speed * 100)}
+                        min={0}
+                        max={100}
+                        onChange={(value) => updateLayer(selected.id, { speed: value / 100 })}
+                      />
+                      <RangeRow
+                        label={t('builder.effect.wind')}
+                        display={`${Math.round(selected.wind * 100)}`}
+                        value={Math.round(selected.wind * 100)}
+                        min={-100}
+                        max={100}
+                        onChange={(value) => updateLayer(selected.id, { wind: value / 100 })}
+                      />
+                    </>
+                  )}
+                  <RangeRow
+                    label={t('builder.effect.size')}
+                    display={`${Math.round(selected.size * 100)}%`}
+                    value={Math.round(selected.size * 100)}
+                    min={30}
+                    max={250}
+                    onChange={(value) => updateLayer(selected.id, { size: value / 100 })}
+                  />
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-slate-400">
+                      {t('builder.layer.color')}
+                      <input
+                        type="color"
+                        value={selected.color}
+                        onChange={(e) => updateLayer(selected.id, { color: e.target.value })}
+                        className="h-7 w-10 cursor-pointer rounded border border-line bg-transparent"
+                      />
+                    </label>
+                    <button type="button" onClick={() => updateLayer(selected.id, { seed: newSeed() })} className={secondaryButton}>
+                      {t('builder.effect.shuffle')}
+                    </button>
+                  </div>
+                </>
+              )}
+              {selected.type !== 'effect' && (
+                <>
+                  <RangeRow
+                    label={t('builder.layer.scale')}
+                    display={`${Math.round(selected.scale * 100)}%`}
+                    value={Math.round(selected.scale * 100)}
+                    min={2}
+                    max={400}
+                    onChange={(value) => updateLayer(selected.id, { scale: value / 100 })}
+                  />
+                  <RangeRow
+                    label={t('builder.layer.rotation')}
+                    display={`${Math.round(selected.rotation)}°`}
+                    value={selected.rotation}
+                    min={-180}
+                    max={180}
+                    onChange={(rotation) => updateLayer(selected.id, { rotation })}
+                  />
+                </>
+              )}
               <RangeRow
                 label={t('builder.layer.opacity')}
                 display={`${Math.round(selected.opacity * 100)}%`}
@@ -917,34 +1026,40 @@ export default function Builder() {
                 max={100}
                 onChange={(value) => updateLayer(selected.id, { opacity: value / 100 })}
               />
-              <div>
-                <span className="mb-1 block text-slate-400">{t('builder.layer.animation')}</span>
-                <div className="flex flex-wrap gap-1">
-                  {ANIMATIONS.map((animation) => (
-                    <button
-                      key={animation}
-                      type="button"
-                      onClick={() => updateLayer(selected.id, { animation })}
-                      className={chipClass(animation === selected.animation)}
-                    >
-                      {t(`builder.animations.${animation}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {selected.animation !== 'none' && (
-                <RangeRow
-                  label={t('builder.layer.strength')}
-                  display={`${Math.round(selected.strength * 100)}%`}
-                  value={Math.round(selected.strength * 100)}
-                  min={0}
-                  max={100}
-                  onChange={(value) => updateLayer(selected.id, { strength: value / 100 })}
-                />
+              {selected.type === 'effect' ? (
+                <p className="text-xs text-slate-500">{t('builder.effect.hint')}</p>
+              ) : (
+                <>
+                  <div>
+                    <span className="mb-1 block text-slate-400">{t('builder.layer.animation')}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {ANIMATIONS.map((animation) => (
+                        <button
+                          key={animation}
+                          type="button"
+                          onClick={() => updateLayer(selected.id, { animation })}
+                          className={chipClass(animation === selected.animation)}
+                        >
+                          {t(`builder.animations.${animation}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {selected.animation !== 'none' && (
+                    <RangeRow
+                      label={t('builder.layer.strength')}
+                      display={`${Math.round(selected.strength * 100)}%`}
+                      value={Math.round(selected.strength * 100)}
+                      min={0}
+                      max={100}
+                      onChange={(value) => updateLayer(selected.id, { strength: value / 100 })}
+                    />
+                  )}
+                  <p className="text-xs text-slate-500">
+                    X {Math.round(selected.x)}, Y {Math.round(selected.y)} · {t('builder.layer.hint')}
+                  </p>
+                </>
               )}
-              <p className="text-xs text-slate-500">
-                X {Math.round(selected.x)}, Y {Math.round(selected.y)} · {t('builder.layer.hint')}
-              </p>
             </div>
           </Section>
         )}

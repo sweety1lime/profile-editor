@@ -1,4 +1,13 @@
-import { SHOWCASES, poseAt, type Frame, type Layer, type ShowcaseKind, type TextLayer } from '@profile-editor/core'
+import {
+  SHOWCASES,
+  effectParticles,
+  poseAt,
+  type EffectLayer,
+  type Frame,
+  type Layer,
+  type ShowcaseKind,
+  type TextLayer,
+} from '@profile-editor/core'
 import type { AnimatedSource } from './animated'
 import type { Source } from './source'
 
@@ -39,9 +48,90 @@ function textSize(layer: TextLayer) {
   }
 }
 
-// Собственный размер слоя, без масштаба и поворота
+// Собственный размер слоя, без масштаба и поворота. У эффекта своей рамки нет
 export function layerSize(layer: Layer): { width: number; height: number } {
-  return layer.type === 'image' ? { width: layer.width, height: layer.height } : textSize(layer)
+  if (layer.type === 'image') return { width: layer.width, height: layer.height }
+  if (layer.type === 'text') return textSize(layer)
+  return { width: 0, height: 0 }
+}
+
+function petal(ctx: CanvasRenderingContext2D, s: number) {
+  ctx.beginPath()
+  ctx.moveTo(0, s)
+  ctx.bezierCurveTo(s * 0.9, s * 0.4, s * 0.7, -s * 0.7, s * 0.18, -s)
+  // выемка на кончике лепестка
+  ctx.lineTo(0, -s * 0.78)
+  ctx.lineTo(-s * 0.18, -s)
+  ctx.bezierCurveTo(-s * 0.7, -s * 0.7, -s * 0.9, s * 0.4, 0, s)
+  ctx.fill()
+}
+
+function sparkle(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.beginPath()
+  ctx.moveTo(x, y - s)
+  ctx.quadraticCurveTo(x, y, x + s, y)
+  ctx.quadraticCurveTo(x, y, x, y + s)
+  ctx.quadraticCurveTo(x, y, x - s, y)
+  ctx.quadraticCurveTo(x, y, x, y - s)
+  ctx.fill()
+}
+
+function dot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+function drawEffect(ctx: CanvasRenderingContext2D, layer: EffectLayer, width: number, height: number, t: number, loopSeconds: number) {
+  ctx.save()
+  ctx.fillStyle = layer.color
+  ctx.strokeStyle = layer.color
+  ctx.lineCap = 'round'
+  // искры и звёзды светятся, поэтому складываем их с тем, что под ними
+  if (layer.effect === 'embers' || layer.effect === 'stars') ctx.globalCompositeOperation = 'lighter'
+
+  for (const p of effectParticles(layer, width, height, loopSeconds, t)) {
+    const alpha = layer.opacity * p.alpha
+    if (alpha < 0.01) continue
+    ctx.globalAlpha = alpha
+    switch (layer.effect) {
+      case 'snow':
+        dot(ctx, p.x, p.y, p.size)
+        ctx.globalAlpha = alpha * 0.25
+        dot(ctx, p.x, p.y, p.size * 1.8)
+        break
+      case 'rain': {
+        const angle = (p.angle * Math.PI) / 180
+        ctx.lineWidth = 0.6 + p.depth
+        ctx.globalAlpha = alpha * 0.6
+        ctx.beginPath()
+        ctx.moveTo(p.x, p.y)
+        ctx.lineTo(p.x - Math.sin(angle) * p.size, p.y - Math.cos(angle) * p.size)
+        ctx.stroke()
+        break
+      }
+      case 'sakura':
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.rotate((p.angle * Math.PI) / 180)
+        ctx.scale(p.flip, 1)
+        petal(ctx, p.size)
+        ctx.restore()
+        break
+      case 'embers':
+        ctx.globalAlpha = alpha * 0.3
+        dot(ctx, p.x, p.y, p.size * 3)
+        ctx.globalAlpha = alpha
+        dot(ctx, p.x, p.y, p.size)
+        break
+      case 'stars':
+        sparkle(ctx, p.x, p.y, p.size)
+        ctx.globalAlpha = alpha * 0.4
+        dot(ctx, p.x, p.y, p.size * 0.45)
+        break
+    }
+  }
+  ctx.restore()
 }
 
 function drawText(ctx: CanvasRenderingContext2D, layer: TextLayer) {
@@ -86,6 +176,10 @@ export function drawScene(
   }
   for (const layer of scene.layers) {
     if (!layer.visible) continue
+    if (layer.type === 'effect') {
+      drawEffect(ctx, layer, width, scene.height, t, scene.durationMs / 1000)
+      continue
+    }
     const pose = poseAt(layer, t)
     ctx.save()
     ctx.globalAlpha = pose.opacity

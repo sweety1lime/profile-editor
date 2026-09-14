@@ -1,6 +1,7 @@
 node_modules
 dist
 apps/web/public/profile-editor.user.js
+apps/web/public/profile-editor-extension.zip
 coverage
 .vercel
 .env

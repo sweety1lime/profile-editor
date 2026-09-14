@@ -11,6 +11,12 @@ const SECTIONS: { id: string; kind: ShowcaseKind }[] = [
   { id: 'workshop', kind: 'workshop' },
 ]
 
+// Два способа поставить помощника: расширение для Chromium и юзерскрипт для менеджеров скриптов
+const INSTALLS: { id: string; href: string; download?: string }[] = [
+  { id: 'extension', href: '/profile-editor-extension.zip', download: 'profile-editor-extension.zip' },
+  { id: 'userscript', href: '/profile-editor.user.js' },
+]
+
 function HexTool() {
   const { t } = useTranslation()
   const input = useRef<HTMLInputElement>(null)
@@ -84,17 +90,33 @@ export default function Guide() {
       <section id="helper" className="rounded-xl border border-accent/40 bg-accent/5 p-6">
         <h2 className="text-lg font-medium text-white">{t('guide.helper.title')}</h2>
         <p className="mt-2 text-sm text-slate-300">{t('guide.helper.text')}</p>
-        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-slate-300">
-          {list('guide.helper.steps').map((step) => (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {INSTALLS.map(({ id, href, download }) => (
+            <div key={id} className="flex flex-col rounded-lg border border-line bg-panel/60 p-4" data-install={id}>
+              <h3 className="font-medium text-white">{t(`guide.helper.${id}.title`)}</h3>
+              <p className="text-xs text-slate-400">{t(`guide.helper.${id}.for`)}</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+                {list(`guide.helper.${id}.steps`).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <a
+                href={href}
+                download={download}
+                className="mt-3 self-start rounded-lg bg-accent px-4 py-2 text-sm font-medium text-ink"
+              >
+                {t(`guide.helper.${id}.button`)}
+              </a>
+              <p className="mt-2 text-xs text-slate-500">{t(`guide.helper.${id}.note`)}</p>
+            </div>
+          ))}
+        </div>
+        <h3 className="mt-5 font-medium text-white">{t('guide.helper.usageTitle')}</h3>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-300">
+          {list('guide.helper.usage').map((step) => (
             <li key={step}>{step}</li>
           ))}
         </ol>
-        <a
-          href="/profile-editor.user.js"
-          className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-ink"
-        >
-          {t('guide.helper.install')}
-        </a>
         <p className="mt-3 text-xs text-slate-500">{t('guide.helper.note')}</p>
       </section>
 

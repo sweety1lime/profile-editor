@@ -44,7 +44,7 @@
       },
       "helper": {
         "title": "Upload helper",
-        "text": "A userscript that fills in the right codes on the Steam upload page for you."
+        "text": "An extension or userscript that fills in the right codes on the Steam upload page for you."
       }
     }
   },
@@ -403,16 +403,36 @@
     "lead": "Steam doesn't let you upload long pictures directly, so on the upload page you paste a short code into the browser console. Sounds scary, takes a minute.",
     "helper": {
       "title": "Upload helper",
-      "text": "A userscript for Tampermonkey or Violentmonkey. A panel shows up on the Steam upload page: pick the showcase, then the file, and the codes are filled in for you. No more console.",
-      "steps": [
-        "Install the Tampermonkey or Violentmonkey extension.",
-        "Press \"Install script\" and confirm.",
+      "text": "A panel shows up on the Steam upload page: pick the showcase, then the file, and the codes are filled in for you. No more console. There are two ways to install it, both work the same.",
+      "extension": {
+        "title": "Extension",
+        "for": "Chrome, Yandex Browser, Edge, Opera",
+        "steps": [
+          "Download the archive and unzip it into a folder you won't delete.",
+          "Open the extensions page: chrome://extensions, or browser://extensions in Yandex Browser.",
+          "Turn on developer mode and press \"Load unpacked\".",
+          "Pick the folder with manifest.json in it."
+        ],
+        "button": "Download extension",
+        "note": "It's not from a store, so it goes in through developer mode and the browser may remind you about it now and then. It doesn't update itself: for a new version download the archive again and replace the files in the folder."
+      },
+      "userscript": {
+        "title": "Userscript",
+        "for": "Tampermonkey or Violentmonkey, works in Firefox too",
+        "steps": [
+          "Install the Tampermonkey or Violentmonkey extension.",
+          "Press \"Install script\" and confirm."
+        ],
+        "button": "Install script",
+        "note": "Handy if you already have a script manager."
+      },
+      "usageTitle": "How to use",
+      "usage": [
         "Open the artwork upload page, the panel appears in the bottom right corner.",
         "Pick the showcase, then the file. For workshop and guides the GIF gets the hex patch automatically.",
         "Tick the box saying it's your work and save."
       ],
-      "install": "Install script",
-      "note": "The script only runs on the artwork upload page and doesn't send anything anywhere. It never ticks the \"it's my work\" box, that one is on you."
+      "note": "The helper only runs on the artwork upload page and doesn't send anything anywhere. It never ticks the \"it's my work\" box, that one is on you."
     },
     "before": {
       "title": "Before you start",

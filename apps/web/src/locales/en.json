@@ -49,6 +49,10 @@
     }
   },
   "cutter": {
+    "restore": {
+      "restored": "Picked up where you left off: {{name}}",
+      "reset": "Start over"
+    },
     "title": "Showcase cutter",
     "source": {
       "title": "Source",

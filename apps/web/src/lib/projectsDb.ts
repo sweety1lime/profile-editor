@@ -1,12 +1,14 @@
-import type { ProjectData } from '@profile-editor/core'
+import type { Frame, ProjectData, ShowcaseKind } from '@profile-editor/core'
 
-// Проекты конструктора хранятся в IndexedDB этого браузера, на сервер ничего не уходит.
-// Настройки и слои лежат отдельно от файлов: фон может весить десятки мегабайт,
+// Всё, что сайт хранит в IndexedDB этого браузера: проекты конструктора и последняя работа нарезчика.
+// На сервер ничего не уходит. Настройки лежат отдельно от файлов: фон может весить десятки мегабайт,
 // поэтому каждый файл пишем один раз, а при сохранении перезаписываем только настройки
 
 const DB_NAME = 'profile-editor'
+const DB_VERSION = 2
 const PROJECTS = 'projects'
 const FILES = 'files'
+const SESSIONS = 'sessions'
 
 export interface ProjectRecord extends Omit<ProjectData, 'background' | 'assets'> {
   background: { file: string; name: string } | null
@@ -17,12 +19,22 @@ let dbPromise: Promise<IDBDatabase> | null = null
 
 function openDb(): Promise<IDBDatabase> {
   dbPromise ??= new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1)
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
     request.onupgradeneeded = () => {
-      request.result.createObjectStore(PROJECTS, { keyPath: 'id' })
-      request.result.createObjectStore(FILES)
+      const db = request.result
+      if (!db.objectStoreNames.contains(PROJECTS)) db.createObjectStore(PROJECTS, { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(FILES)) db.createObjectStore(FILES)
+      if (!db.objectStoreNames.contains(SESSIONS)) db.createObjectStore(SESSIONS)
     }
-    request.onsuccess = () => resolve(request.result)
+    request.onsuccess = () => {
+      const db = request.result
+      // вкладка с новой версией сайта обновляет базу, эта отпускает её
+      db.onversionchange = () => {
+        db.close()
+        dbPromise = null
+      }
+      resolve(db)
+    }
     request.onerror = () => {
       dbPromise = null
       reject(request.error)
@@ -121,6 +133,54 @@ export const projectsDb = {
     // ключи файлов вида "<id>/<uuid>", а "0" по порядку идёт сразу за "/"
     tx.objectStore(FILES).delete(IDBKeyRange.bound(`${id}/`, `${id}0`, false, true))
     await finished(tx)
+  },
+}
+
+export interface CutterSession {
+  name: string
+  kind: ShowcaseKind
+  frame: Frame | null
+  clip: { start: number; length: number; fps: number } | null
+  hex: boolean
+  format: 'png' | 'jpg'
+  savedAt: number
+}
+
+const CUTTER = 'cutter'
+const CUTTER_SOURCE = 'cutter:source'
+// исходник нарезчика тоже пишем, только когда он сменился
+let savedSource: Blob | null = null
+
+export const cutterDb = {
+  async load(): Promise<{ session: CutterSession; blob: Blob } | null> {
+    const db = await openDb()
+    const store = db.transaction(SESSIONS).objectStore(SESSIONS)
+    const [session, blob] = await Promise.all([
+      done<CutterSession | undefined>(store.get(CUTTER)),
+      done<Blob | undefined>(store.get(CUTTER_SOURCE)),
+    ])
+    if (!session || !blob) return null
+    savedSource = blob
+    return { session, blob }
+  },
+
+  async save(session: CutterSession, blob: Blob): Promise<void> {
+    const db = await openDb()
+    const tx = db.transaction(SESSIONS, 'readwrite')
+    const store = tx.objectStore(SESSIONS)
+    store.put(session, CUTTER)
+    const fresh = blob !== savedSource
+    if (fresh) store.put(blob, CUTTER_SOURCE)
+    await finished(tx)
+    if (fresh) savedSource = blob
+  },
+
+  async clear(): Promise<void> {
+    const db = await openDb()
+    const tx = db.transaction(SESSIONS, 'readwrite')
+    tx.objectStore(SESSIONS).clear()
+    await finished(tx)
+    savedSource = null
   },
 }
 

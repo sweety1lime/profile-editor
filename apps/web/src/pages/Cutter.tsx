@@ -23,14 +23,17 @@ import CopyButton from '../components/CopyButton'
 import CropCanvas from '../components/CropCanvas'
 import ShowcasePreview from '../components/ShowcasePreview'
 import { paletteFromImage } from '../lib/palette'
+import { askPersistentStorage, cutterDb, type CutterSession } from '../lib/projectsDb'
 import { showcaseStore } from '../lib/showcaseStore'
-import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
+import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
 import type { Progress } from '../lib/encodeGif'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
 const DEFAULT_CLIP_SECONDS = 5
 const MIN_CLIP_SECONDS = 0.2
+// работа сохраняется после небольшой паузы в правках
+const SAVE_DELAY = 600
 
 interface Clip {
   start: number
@@ -111,13 +114,35 @@ export default function Cutter() {
   const navigate = useNavigate()
   const { lang } = useParams()
   const fileInput = useRef<HTMLInputElement>(null)
+  // имя исходника, если работу вернули из прошлого раза
+  const [restored, setRestored] = useState<string | null>(null)
+  const sourceRef = useRef<Source | null>(null)
+  const restoring = useRef(false)
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
+  // растёт при «Начать заново», чтобы запоздавшее сохранение не вернуло старую работу
+  const generation = useRef(0)
 
   // старый исходник освобождаем, когда пришёл новый
   useEffect(() => {
+    sourceRef.current = source
     return () => {
       if (source) disposeSource(source)
     }
   }, [source])
+
+  useEffect(() => {
+    if (!source || !frame) return
+    const gen = generation.current
+    const timer = setTimeout(() => {
+      if (gen !== generation.current) return
+      const session: CutterSession = { name: source.name, kind, frame, clip, hex, format, savedAt: Date.now() }
+      saveQueue.current = saveQueue.current
+        .then(() => cutterDb.save(session, source.blob))
+        .then(askPersistentStorage)
+        .catch((err) => console.warn('cutter save failed:', err))
+    }, SAVE_DELAY)
+    return () => clearTimeout(timer)
+  }, [source, kind, frame, clip, hex, format])
 
   // из каталога приходим со ссылкой на фон в адресе
   const [searchParams] = useSearchParams()
@@ -128,6 +153,49 @@ export default function Cutter() {
     load(() => fromLink(src))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
+
+  // без ссылки в адресе возвращаем то, что резали в прошлый раз
+  useEffect(() => {
+    if (src || restoring.current) return
+    restoring.current = true
+    cutterDb
+      .load()
+      .then(async (saved) => {
+        if (!saved) return
+        const { session } = saved
+        const next = await fromBlob(saved.blob, session.name)
+        // пока грузили, уже выбрали другой файл
+        if (sourceRef.current) {
+          disposeSource(next)
+          return
+        }
+        setSource(next)
+        setKind(session.kind)
+        setFrame(session.frame ?? fitFrame(session.kind, next.width, next.height))
+        setClip(
+          next.type === 'animated'
+            ? (session.clip ?? { start: 0, length: Math.min(next.duration, DEFAULT_CLIP_SECONDS), fps: nearestFps(next.fps) })
+            : null,
+        )
+        setHex(session.hex)
+        setFormat(session.format)
+        setRestored(session.name)
+      })
+      .catch((err) => console.warn('cutter restore failed:', err))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function startOver() {
+    generation.current++
+    setSource(null)
+    setFrame(null)
+    setClip(null)
+    setRestored(null)
+    setLink('')
+    setError(null)
+    resetResult()
+    saveQueue.current = saveQueue.current.then(() => cutterDb.clear()).catch(() => {})
+  }
 
   function resetResult() {
     setResult(null)
@@ -141,6 +209,7 @@ export default function Cutter() {
     try {
       const next = await task()
       setSource(next)
+      setRestored(null)
       setFrame(fitFrame(kind, next.width, next.height))
       setClip(
         next.type === 'animated'
@@ -301,6 +370,17 @@ export default function Cutter() {
           </form>
           <p className="mt-2 text-xs text-slate-500">{t('cutter.source.linkHint')}</p>
           {error && <p className="mt-2 text-sm text-red-400">{t(`cutter.errors.${error}`)}</p>}
+          {restored && source && (
+            <div
+              className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-line bg-panel/60 px-3 py-2 text-xs text-slate-400"
+              data-restored
+            >
+              <span className="min-w-0 truncate">{t('cutter.restore.restored', { name: restored })}</span>
+              <button type="button" onClick={startOver} className="shrink-0 text-accent hover:underline">
+                {t('cutter.restore.reset')}
+              </button>
+            </div>
+          )}
           {source && (
             <button type="button" onClick={matchBackground} className={`${secondaryButton} mt-3 w-full`}>
               {t('cutter.source.match')}

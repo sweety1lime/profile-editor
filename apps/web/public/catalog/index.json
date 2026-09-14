@@ -1,5 +1,5 @@
 {
- "version": "027a34a0cba5",
+ "version": "9007510b143f",
  "kinds": {
   "backgrounds": {
    "total": 63501,
@@ -43,5 +43,22 @@
     "profiles-0.json"
    ]
   }
+ },
+ "colors": {
+  "backgrounds": [
+   "colors-backgrounds-0.json",
+   "colors-backgrounds-1.json",
+   "colors-backgrounds-2.json",
+   "colors-backgrounds-3.json",
+   "colors-backgrounds-4.json",
+   "colors-backgrounds-5.json",
+   "colors-backgrounds-6.json",
+   "colors-backgrounds-7.json",
+   "colors-backgrounds-8.json",
+   "colors-backgrounds-9.json",
+   "colors-backgrounds-10.json",
+   "colors-backgrounds-11.json",
+   "colors-backgrounds-12.json"
+  ]
  }
 }

@@ -10,6 +10,7 @@ import {
   UPLOAD_SNIPPETS,
   buildTimeline,
   clampHeight,
+  encodePalette,
   fitFrame,
   isProfileBackground,
   nearestFps,
@@ -21,6 +22,7 @@ import {
 import CopyButton from '../components/CopyButton'
 import CropCanvas from '../components/CropCanvas'
 import ShowcasePreview from '../components/ShowcasePreview'
+import { paletteFromImage } from '../lib/palette'
 import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
@@ -239,6 +241,14 @@ export default function Cutter() {
     }
   }
 
+  // Считаем палитру картинки и открываем каталог фонов, отсортированный по похожести
+  function matchBackground() {
+    if (!source) return
+    const image = source.type === 'still' ? source.image : source.poster
+    const palette = paletteFromImage(image, source.width, source.height)
+    if (palette.length) navigate(`/${lang}/backgrounds?palette=${encodePalette(palette)}`)
+  }
+
   // Отдаём готовые части в превью, а если резали фон профиля, то и сам фон
   function sendToPreview() {
     if (!result || !source) return
@@ -291,6 +301,11 @@ export default function Cutter() {
           </form>
           <p className="mt-2 text-xs text-slate-500">{t('cutter.source.linkHint')}</p>
           {error && <p className="mt-2 text-sm text-red-400">{t(`cutter.errors.${error}`)}</p>}
+          {source && (
+            <button type="button" onClick={matchBackground} className={`${secondaryButton} mt-3 w-full`}>
+              {t('cutter.source.match')}
+            </button>
+          )}
         </Section>
 
         <Section title={t('cutter.kind.title')}>

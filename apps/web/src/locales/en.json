@@ -48,7 +48,8 @@
       "file": "Choose a file",
       "linkPlaceholder": "Link to a file or a profile",
       "load": "Load",
-      "linkHint": "Paste a direct link to a picture, GIF or video. With a Steam profile link its background is used, animated ones too."
+      "linkHint": "Paste a direct link to a picture, GIF or video. With a Steam profile link its background is used, animated ones too.",
+      "match": "Find a background for this picture"
     },
     "empty": {
       "title": "Drop a file here",
@@ -193,6 +194,15 @@
     "search": "Name or game",
     "animatedOnly": "Animated only",
     "showAdult": "Show 18+",
+    "match": {
+      "title": "Match by color",
+      "upload": "From a picture",
+      "color": "or a color",
+      "reset": "Reset",
+      "sorted": "Closest colors first",
+      "loading": "Loading palettes…",
+      "error": "Palettes aren't ready yet, try later."
+    },
     "sort": {
       "new": "Newest first",
       "cheap": "Cheapest first",

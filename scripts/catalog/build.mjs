@@ -4,13 +4,17 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import jpeg from 'jpeg-js'
+import { encodePalette, extractPalette } from '../../packages/core/src/color.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const OUT = path.join(ROOT, 'apps/web/public/catalog')
 const API = 'https://api.steampowered.com'
+const THUMBS = 'https://community.fastly.steamstatic.com/economy/profilebackground/items/'
 const PAGE = 1000
 const SHARD = 5000
 const APPS_BATCH = 200
+const COLOR_WORKERS = 24
 
 const KINDS = [
   { name: 'backgrounds', cls: 3 },
@@ -19,6 +23,10 @@ const KINDS = [
   { name: 'avatars', cls: 15 },
   { name: 'profiles', cls: 8 },
 ]
+
+// Метки контента Steam: 3 — только для взрослых, 4 — частая нагота.
+// Такие игры Steam сам прячет в магазине, мы прячем их предметы в каталоге
+const ADULT_DESCRIPTORS = [3, 4]
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -37,6 +45,21 @@ async function readJson(file) {
   } catch {
     return null
   }
+}
+
+// Прогоняет список через fn, держа в работе не больше limit задач сразу
+async function mapLimit(list, limit, fn) {
+  const out = new Array(list.length)
+  let next = 0
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (next < list.length) {
+        const i = next++
+        out[i] = await fn(list[i])
+      }
+    }),
+  )
+  return out
 }
 
 async function fetchKind(cls) {
@@ -80,10 +103,6 @@ function trim(def) {
   return item
 }
 
-// Метки контента Steam: 3 — только для взрослых, 4 — частая нагота.
-// Такие игры Steam сам прячет в магазине, мы прячем их предметы в каталоге
-const ADULT_DESCRIPTORS = [3, 4]
-
 async function fetchAppInfo(appids) {
   const names = {}
   const adult = new Set()
@@ -102,12 +121,49 @@ async function fetchAppInfo(appids) {
   return { names, adult }
 }
 
+// Палитру считаем по превью 64×36, его отдаёт CDN Steam, весит около полутора килобайт
+async function paletteFor(item) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const res = await fetch(`${THUMBS}${item.a}/${item.i}?size=64x36`, { signal: AbortSignal.timeout(20_000) }).catch(
+      () => null,
+    )
+    if (res?.ok) {
+      try {
+        const { data, width, height } = jpeg.decode(new Uint8Array(await res.arrayBuffer()), { useTArray: true })
+        return encodePalette(extractPalette(data, width * height))
+      } catch {
+        return ''
+      }
+    }
+    if (res?.status === 404) return ''
+    await sleep(1000 * attempt)
+  }
+  return ''
+}
+
+// Палитры из прошлой выгрузки: файлы палитр идут в том же порядке, что и файлы фонов
+async function previousPalettes(previous) {
+  const known = new Map()
+  const itemShards = previous?.kinds?.backgrounds?.shards ?? []
+  const colorShards = previous?.colors?.backgrounds ?? []
+  for (let s = 0; s < colorShards.length; s++) {
+    const items = await readJson(path.join(OUT, itemShards[s] ?? ''))
+    const colors = await readJson(path.join(OUT, colorShards[s]))
+    if (!items || !colors) continue
+    items.forEach((item, i) => {
+      if (colors[i]) known.set(item.d, colors[i])
+    })
+  }
+  return known
+}
+
 const previous = await readJson(path.join(OUT, 'index.json'))
 const previousApps = await readJson(path.join(OUT, 'apps.json'))
 const knownApps = previousApps?.names ?? {}
 const knownAdult = new Set((previousApps?.adult ?? []).map(String))
 const files = {}
 const kinds = {}
+const lists = {}
 const appids = new Set()
 
 for (const { name, cls } of KINDS) {
@@ -131,6 +187,7 @@ for (const { name, cls } of KINDS) {
     shards.push(file)
   }
   kinds[name] = { total: list.length, shards }
+  lists[name] = list
   for (const item of list) appids.add(String(item.a))
   console.log(`${name}: ${list.length}`)
 }
@@ -147,6 +204,25 @@ for (const id of [...appids].sort((a, b) => Number(a) - Number(b))) {
 files['apps.json'] = JSON.stringify({ names, adult })
 console.log(`игры: ${Object.keys(names).length} из ${appids.size}, для взрослых ${adult.length}, запросили ${missing.length}`)
 
+const palettes = await previousPalettes(previous)
+const todo = lists.backgrounds.filter((item) => !palettes.has(item.d))
+let done = 0
+const computed = await mapLimit(todo, COLOR_WORKERS, async (item) => {
+  const palette = await paletteFor(item)
+  if (++done % 5000 === 0) console.log(`палитры: ${done} из ${todo.length}`)
+  return palette
+})
+todo.forEach((item, i) => {
+  if (computed[i]) palettes.set(item.d, computed[i])
+})
+const colorShards = kinds.backgrounds.shards.map((_, s) => {
+  const file = `colors-backgrounds-${s}.json`
+  files[file] = JSON.stringify(lists.backgrounds.slice(s * SHARD, (s + 1) * SHARD).map((item) => palettes.get(item.d) ?? ''))
+  return file
+})
+const failed = computed.filter((p) => !p).length
+console.log(`палитры: посчитали ${todo.length - failed}, не вышло ${failed}, всего ${palettes.size}`)
+
 const hash = createHash('sha1')
 for (const file of Object.keys(files).sort()) hash.update(file).update(files[file])
 const version = hash.digest('hex').slice(0, 12)
@@ -161,5 +237,5 @@ for (const file of await readdir(OUT)) {
   if (file.endsWith('.json') && file !== 'index.json' && !(file in files)) await rm(path.join(OUT, file))
 }
 for (const [file, body] of Object.entries(files)) await writeFile(path.join(OUT, file), body)
-await writeFile(path.join(OUT, 'index.json'), JSON.stringify({ version, kinds }, null, 1) + '\n')
+await writeFile(path.join(OUT, 'index.json'), JSON.stringify({ version, kinds, colors: { backgrounds: colorShards } }, null, 1) + '\n')
 console.log(`готово, версия ${version}`)

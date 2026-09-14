@@ -20,6 +20,8 @@ export interface CatalogItem {
 interface CatalogIndex {
   version: string
   kinds: Record<CatalogKind, { total: number; shards: string[] }>
+  // палитры лежат в том же порядке, что и предметы
+  colors?: Partial<Record<CatalogKind, string[]>>
 }
 
 const ASSETS = 'https://shared.fastly.steamstatic.com/community_assets/images/items/'
@@ -34,6 +36,7 @@ export interface CatalogApps {
 let indexPromise: Promise<CatalogIndex> | null = null
 let appsPromise: Promise<CatalogApps> | null = null
 const kinds = new Map<CatalogKind, Promise<CatalogItem[]>>()
+const palettes = new Map<CatalogKind, Promise<string[]>>()
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
@@ -65,6 +68,26 @@ export function loadKind(kind: CatalogKind): Promise<CatalogItem[]> {
         throw err
       })
     kinds.set(kind, promise)
+  }
+  return promise
+}
+
+// Палитры в том же порядке, что и предметы из loadKind, пустая строка — палитру посчитать не вышло
+export function loadPalettes(kind: CatalogKind): Promise<string[]> {
+  let promise = palettes.get(kind)
+  if (!promise) {
+    promise = loadIndex()
+      .then(async (index) => {
+        const shards = index.colors?.[kind]
+        if (!shards) throw new Error(`no palettes for ${kind}`)
+        const parts = await Promise.all(shards.map((file) => getJson<string[]>(`/catalog/${file}?v=${index.version}`)))
+        return parts.flat()
+      })
+      .catch((err) => {
+        palettes.delete(kind)
+        throw err
+      })
+    palettes.set(kind, promise)
   }
   return promise
 }

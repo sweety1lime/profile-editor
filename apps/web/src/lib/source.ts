@@ -35,7 +35,7 @@ export class SourceError extends Error {
 const isVideo = (type: string, name: string) => type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(name)
 const isGif = (type: string, name: string) => type === 'image/gif' || /\.gif$/i.test(name)
 
-async function fromBlob(blob: Blob, name: string): Promise<Source> {
+export async function fromBlob(blob: Blob, name: string): Promise<Source> {
   if (isVideo(blob.type, name)) {
     try {
       const { openVideo } = await decoders()

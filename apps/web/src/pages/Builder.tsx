@@ -14,21 +14,26 @@ import {
   hasAnimation,
   isProfileBackground,
   moveLayer,
+  packProject,
   sliceRects,
+  unpackProject,
   type Frame,
   type ImageLayer,
   type Layer,
+  type ProjectData,
   type ShowcaseKind,
   type TextLayer,
 } from '@profile-editor/core'
 import BuilderStage from '../components/BuilderStage'
+import ProjectsPanel from '../components/ProjectsPanel'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
 import { drawScene, sceneSource, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
 import { removeBackground, type CutoutModel } from '../lib/cutout'
 import { FONTS, useFontsReady } from '../lib/fonts'
+import { askPersistentStorage, bitmapToBlob, projectsDb, type ProjectRecord } from '../lib/projectsDb'
 import { showcaseStore } from '../lib/showcaseStore'
-import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
+import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
 import type { Progress } from '../lib/encodeGif'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
@@ -45,8 +50,24 @@ interface Result {
 
 const newId = () => crypto.randomUUID()
 
+// проект сохраняется после небольшой паузы в правках
+const SAVE_DELAY = 600
+const THUMB_WIDTH = 120
+
+interface Session {
+  id: string
+  autoName: string
+}
+
+type ProjectError = 'import' | 'open'
+
+const fileSafe = (name: string) => name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'project'
+
+const toJpeg = (canvas: HTMLCanvasElement | null) =>
+  canvas ? new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8)) : Promise.resolve(null)
+
 export default function Builder() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { lang } = useParams()
   const [searchParams] = useSearchParams()
@@ -72,6 +93,24 @@ export default function Builder() {
   const [cutoutModel, setCutoutModel] = useState<CutoutModel>('quality')
   const [cutout, setCutout] = useState<{ layerId: string; stage: 'download' | 'run'; percent: number } | null>(null)
   const [cutoutError, setCutoutError] = useState<'failed' | 'empty' | null>(null)
+  const freshSession = (): Session => ({
+    id: newId(),
+    autoName: t('builder.projects.untitled', {
+      date: new Date().toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' }),
+    }),
+  })
+  // исходные файлы картинок слоёв, из них проект и сохраняется
+  const [assetBlobs] = useState(() => new Map<string, Blob>())
+  const [session, setSession] = useState(freshSession)
+  const [name, setName] = useState('')
+  const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [projectError, setProjectError] = useState<ProjectError | null>(null)
+  const sessionRef = useRef(session)
+  const skipSave = useRef<Session | null>(null)
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const isEmpty = useRef(true)
+  const autoloaded = useRef(false)
   const backgroundInput = useRef<HTMLInputElement>(null)
   const imageInput = useRef<HTMLInputElement>(null)
   const fontsVersion = useFontsReady(layers)
@@ -97,6 +136,10 @@ export default function Builder() {
   useEffect(() => {
     return () => assets.forEach((bitmap) => bitmap.close())
   }, [assets])
+
+  useEffect(() => {
+    isEmpty.current = !source && layers.length === 0
+  }, [source, layers])
 
   function resetResult() {
     setResult(null)
@@ -163,6 +206,7 @@ export default function Builder() {
         if (!id) continue
         assets.get(id)?.close()
         assets.delete(id)
+        assetBlobs.delete(id)
       }
     }
     setLayers((list) => list.filter((l) => l.id !== id))
@@ -179,6 +223,7 @@ export default function Builder() {
     }
     const id = newId()
     assets.set(id, bitmap)
+    assetBlobs.set(id, file)
     setAssetsVersion((v) => v + 1)
     const layer: ImageLayer = {
       id,
@@ -236,18 +281,19 @@ export default function Builder() {
     setCutoutError(null)
     setCutout({ layerId: layer.id, stage: 'download', percent: 0 })
     try {
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
-      canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
-      const blob = await canvas.convertToBlob({ type: 'image/png' })
-      const cut = await removeBackground(blob, cutoutModel, (stage, percent) =>
+      const cut = await removeBackground(await bitmapToBlob(bitmap), cutoutModel, (stage, percent) =>
         setCutout({ layerId: layer.id, stage, percent }),
       )
+      // для сохранения проекта вырезку сразу держим и файлом
+      const cutBlob = await bitmapToBlob(cut)
       const id = newId()
       assets.set(id, cut)
+      assetBlobs.set(id, cutBlob)
       // прошлую вырезку выбрасываем, оригинал оставляем
       if (layer.originalAssetId) {
         assets.get(layer.assetId)?.close()
         assets.delete(layer.assetId)
+        assetBlobs.delete(layer.assetId)
       }
       setAssetsVersion((v) => v + 1)
       updateLayer(layer.id, {
@@ -270,6 +316,7 @@ export default function Builder() {
     const original = assets.get(layer.originalAssetId)
     assets.get(layer.assetId)?.close()
     assets.delete(layer.assetId)
+    assetBlobs.delete(layer.assetId)
     setAssetsVersion((v) => v + 1)
     updateLayer(layer.id, {
       assetId: layer.originalAssetId,
@@ -277,6 +324,218 @@ export default function Builder() {
       width: original?.width ?? layer.width,
       height: original?.height ?? layer.height,
     })
+  }
+
+  function refreshProjects() {
+    projectsDb.list().then(setProjects).catch(() => {})
+  }
+
+  // сохранения и удаления идут строго по очереди, чтобы не перетирать друг друга
+  function queue<T>(task: () => Promise<T>): Promise<T> {
+    const next = saveQueue.current.then(task)
+    saveQueue.current = next.catch(() => {})
+    return next
+  }
+
+  function drawThumbnail() {
+    const canvas = document.createElement('canvas')
+    const k = THUMB_WIDTH / width
+    canvas.width = THUMB_WIDTH
+    canvas.height = Math.max(1, Math.round(height * k))
+    const ctx = canvas.getContext('2d')!
+    try {
+      ctx.scale(k, k)
+      drawScene(ctx, scene, 0, background, assets)
+    } catch {
+      return null
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.globalCompositeOperation = 'destination-over'
+    ctx.fillStyle = '#171a21'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    return canvas
+  }
+
+  // Снимок берём сразу, пока картинки в памяти ещё совпадают со слоями
+  function snapshot() {
+    const used: Record<string, Blob> = {}
+    for (const layer of layers) {
+      if (layer.type !== 'image') continue
+      for (const id of [layer.assetId, layer.originalAssetId]) {
+        const blob = id ? assetBlobs.get(id) : undefined
+        if (id && blob) used[id] = blob
+      }
+    }
+    const project: Omit<ProjectData, 'thumbnail'> = {
+      id: session.id,
+      name: name.trim() || session.autoName,
+      updatedAt: Date.now(),
+      kind,
+      height,
+      frame,
+      durationMs,
+      fps,
+      format,
+      hex,
+      layers,
+      background: source ? { blob: source.blob, name: source.name } : null,
+      assets: used,
+    }
+    return { project, thumbnail: drawThumbnail() }
+  }
+
+  useEffect(() => {
+    if (skipSave.current === session) {
+      skipSave.current = null
+      return
+    }
+    if (!source && layers.length === 0) return
+    const timer = setTimeout(() => {
+      // пока ждали, открыли другой проект, эти правки уже не к нему
+      if (sessionRef.current !== session) return
+      const { project, thumbnail } = snapshot()
+      queue(async () => {
+        try {
+          await projectsDb.save({ ...project, thumbnail: await toJpeg(thumbnail) })
+          askPersistentStorage()
+          if (sessionRef.current === session) setSaveState('saved')
+        } catch (err) {
+          console.warn('project save failed:', err)
+          setSaveState('error')
+        }
+        refreshProjects()
+      })
+    }, SAVE_DELAY)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, source, kind, frame, height, layers, durationMs, fps, format, hex, name, assetsVersion])
+
+  function clearAssets() {
+    assets.forEach((bitmap) => bitmap.close())
+    assets.clear()
+    assetBlobs.clear()
+  }
+
+  function startSession(next: Session) {
+    sessionRef.current = next
+    setSession(next)
+    setSaveState('idle')
+    setProjectError(null)
+    setSelectedId(null)
+    setError(null)
+    setLink('')
+    resetResult()
+  }
+
+  function newProject() {
+    clearAssets()
+    startSession(freshSession())
+    setSource(null)
+    setFrame(null)
+    setHeight(DEFAULT_HEIGHT)
+    setLayers([])
+    setName('')
+    setAssetsVersion((v) => v + 1)
+  }
+
+  async function applyProject(data: ProjectData, onlyIfEmpty = false) {
+    const bitmaps = new Map<string, ImageBitmap>()
+    for (const [id, blob] of Object.entries(data.assets)) {
+      const bitmap = await createImageBitmap(blob).catch(() => null)
+      if (bitmap) bitmaps.set(id, bitmap)
+    }
+    let next: Source | null = null
+    if (data.background) {
+      try {
+        next = await fromBlob(data.background.blob, data.background.name)
+      } catch {
+        // без фона не открываем, иначе автосохранение его потеряет
+        bitmaps.forEach((bitmap) => bitmap.close())
+        setProjectError('open')
+        return
+      }
+    }
+    // пока грузились, человек уже начал новую работу, её не трогаем
+    if (onlyIfEmpty && !isEmpty.current) {
+      bitmaps.forEach((bitmap) => bitmap.close())
+      if (next) disposeSource(next)
+      return
+    }
+
+    clearAssets()
+    bitmaps.forEach((bitmap, id) => assets.set(id, bitmap))
+    for (const [id, blob] of Object.entries(data.assets)) assetBlobs.set(id, blob)
+    const loaded = { id: data.id, autoName: data.name }
+    skipSave.current = loaded
+    startSession(loaded)
+    setName(data.name)
+    setSource(next)
+    setKind(data.kind)
+    setFrame(next ? (data.frame ?? fitFrame(data.kind, next.width, next.height)) : null)
+    setHeight(data.height)
+    setLayers(data.layers)
+    setDurationMs(data.durationMs)
+    setFps(data.fps)
+    setFormat(data.format)
+    setHex(data.hex)
+    setAssetsVersion((v) => v + 1)
+  }
+
+  async function openProject(id: string, onlyIfEmpty = false) {
+    setProjectError(null)
+    const data = await projectsDb.load(id).catch(() => null)
+    if (data) await applyProject(data, onlyIfEmpty)
+    else setProjectError('open')
+  }
+
+  // без ссылки на фон продолжаем последний проект
+  useEffect(() => {
+    if (autoloaded.current) return
+    autoloaded.current = true
+    projectsDb
+      .list()
+      .then((list) => {
+        setProjects(list)
+        if (!src && list[0]) openProject(list[0].id, true)
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function deleteProject(project: ProjectRecord) {
+    if (!window.confirm(t('builder.projects.confirmDelete', { name: project.name }))) return
+    if (project.id === session.id) newProject()
+    queue(() => projectsDb.remove(project.id))
+      .catch(() => {})
+      .finally(refreshProjects)
+  }
+
+  async function exportProject() {
+    const { project, thumbnail } = snapshot()
+    const bytes = await packProject({ ...project, thumbnail: await toJpeg(thumbnail) })
+    download(new Blob([bytes as BlobPart], { type: 'application/zip' }), `${fileSafe(project.name)}.zip`)
+  }
+
+  async function importProject(file: File) {
+    setProjectError(null)
+    let data: ProjectData
+    try {
+      data = unpackProject(new Uint8Array(await file.arrayBuffer()))
+    } catch {
+      setProjectError('import')
+      return
+    }
+    // такой проект уже есть в браузере: кладём копию рядом, а не поверх
+    if (projects.some((p) => p.id === data.id)) data = { ...data, id: newId() }
+    data = { ...data, updatedAt: Date.now() }
+    try {
+      await queue(() => projectsDb.save(data))
+    } catch {
+      setSaveState('error')
+      return
+    }
+    refreshProjects()
+    await applyProject(data)
   }
 
   function readme() {
@@ -356,6 +615,22 @@ export default function Builder() {
           <h1 className="text-2xl font-semibold text-white">{t('builder.title')}</h1>
           <p className="mt-2 text-sm text-slate-400">{t('builder.lead')}</p>
         </div>
+
+        <ProjectsPanel
+          projects={projects}
+          currentId={session.id}
+          name={name}
+          placeholder={session.autoName}
+          status={saveState}
+          error={projectError}
+          canExport={!!source || layers.length > 0}
+          onName={setName}
+          onOpen={(project) => openProject(project.id)}
+          onDelete={deleteProject}
+          onNew={newProject}
+          onExport={exportProject}
+          onImport={importProject}
+        />
 
         <Section title={t('builder.background.title')}>
           <button type="button" onClick={() => backgroundInput.current?.click()} className={`${secondaryButton} w-full`}>

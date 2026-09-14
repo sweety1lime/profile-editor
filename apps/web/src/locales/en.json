@@ -226,6 +226,24 @@
       "strength": "Strength",
       "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it."
     },
+    "projects": {
+      "title": "Project",
+      "name": "Project name",
+      "untitled": "Project from {{date}}",
+      "hint": "Everything is saved in this browser automatically. The project file is a copy on your disk: handy if the browser clears its data or you want to continue on another computer.",
+      "saved": "Saved in this browser",
+      "saveError": "Couldn't save, the browser is probably out of space. Download the project file so you don't lose your work.",
+      "new": "New",
+      "export": "Download file",
+      "import": "Open file",
+      "current": "open",
+      "delete": "Delete project",
+      "confirmDelete": "Delete project “{{name}}”? This can't be undone.",
+      "errors": {
+        "import": "This isn't a project file. Use the zip from the “Download file” button.",
+        "open": "Couldn't open the project. If the background was a video, this browser may not play it."
+      }
+    },
     "cutout": {
       "title": "Remove background",
       "models": {

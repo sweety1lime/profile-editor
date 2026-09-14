@@ -4,3 +4,4 @@
 *.jpg binary
 *.webm binary
 *.mp4 binary
+apps/web/public/catalog/*.json -diff linguist-generated=true

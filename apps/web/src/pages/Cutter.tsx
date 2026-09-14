@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   FPS_OPTIONS,
@@ -116,6 +116,16 @@ export default function Cutter() {
       if (source) disposeSource(source)
     }
   }, [source])
+
+  // из каталога приходим со ссылкой на фон в адресе
+  const [searchParams] = useSearchParams()
+  const src = searchParams.get('src')
+  useEffect(() => {
+    if (!src) return
+    setLink(src)
+    load(() => fromLink(src))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src])
 
   function resetResult() {
     setResult(null)

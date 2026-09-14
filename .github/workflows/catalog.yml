@@ -1,0 +1,30 @@
+name: catalog
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/catalog/build.mjs
+      - name: commit
+        run: |
+          if [ -z "$(git status --porcelain apps/web/public/catalog)" ]; then
+            echo "каталог не изменился"
+            exit 0
+          fi
+          git config user.name "${{ github.repository_owner }}"
+          git config user.email "${{ github.repository_owner_id }}+${{ github.repository_owner }}@users.noreply.github.com"
+          git add apps/web/public/catalog
+          git commit -m "Обновил каталог магазина очков"
+          git push

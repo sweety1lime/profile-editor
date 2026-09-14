@@ -1,0 +1,47 @@
+{
+ "version": "027a34a0cba5",
+ "kinds": {
+  "backgrounds": {
+   "total": 63501,
+   "shards": [
+    "backgrounds-0.json",
+    "backgrounds-1.json",
+    "backgrounds-2.json",
+    "backgrounds-3.json",
+    "backgrounds-4.json",
+    "backgrounds-5.json",
+    "backgrounds-6.json",
+    "backgrounds-7.json",
+    "backgrounds-8.json",
+    "backgrounds-9.json",
+    "backgrounds-10.json",
+    "backgrounds-11.json",
+    "backgrounds-12.json"
+   ]
+  },
+  "mini": {
+   "total": 1268,
+   "shards": [
+    "mini-0.json"
+   ]
+  },
+  "frames": {
+   "total": 2073,
+   "shards": [
+    "frames-0.json"
+   ]
+  },
+  "avatars": {
+   "total": 3117,
+   "shards": [
+    "avatars-0.json"
+   ]
+  },
+  "profiles": {
+   "total": 123,
+   "shards": [
+    "profiles-0.json"
+   ]
+  }
+ }
+}

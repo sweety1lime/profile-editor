@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SHOWCASES, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
 import ProfileReplica, { type ReplicaBackground } from '../components/ProfileReplica'
@@ -29,7 +29,7 @@ const chipClass = (active: boolean) =>
 
 export default function Preview() {
   const { t } = useTranslation()
-  const { showcases, background } = useShowcaseStore()
+  const { showcases, background, tryOn } = useShowcaseStore()
 
   const [name, setName] = useState(() => t('preview.defaultName'))
   const [level, setLevel] = useState(10)
@@ -51,6 +51,21 @@ export default function Preview() {
   const avatarInput = useRef<HTMLInputElement>(null)
   const backgroundInput = useRef<HTMLInputElement>(null)
   const filesInput = useRef<HTMLInputElement>(null)
+
+  // забираем то, что выбрали примерить в каталоге
+  useEffect(() => {
+    if (!tryOn) return
+    if (tryOn.background) {
+      setRemoteBackground(tryOn.background)
+      setUseRemoteBackground(true)
+    }
+    if (tryOn.frame) setFrame(tryOn.frame)
+    if (tryOn.avatar) {
+      setRemoteAvatar(tryOn.avatar)
+      setAvatarFile(null)
+    }
+    showcaseStore.clearTryOn()
+  }, [tryOn])
 
   const avatarFileUrl = useObjectUrl(avatarFile)
   const storeBackgroundUrl = useObjectUrl(background?.blob)

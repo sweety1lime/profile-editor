@@ -1,0 +1,291 @@
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import {
+  assetUrl,
+  loadApps,
+  loadKind,
+  motionUrl,
+  pointsShopUrl,
+  thumbUrl,
+  type CatalogApps,
+  type CatalogItem,
+  type CatalogKind,
+} from '../lib/catalog'
+import { showcaseStore } from '../lib/showcaseStore'
+
+const TABS: CatalogKind[] = ['backgrounds', 'mini', 'frames', 'avatars', 'profiles']
+const SORTS = ['new', 'cheap', 'expensive'] as const
+type Sort = (typeof SORTS)[number]
+const PAGE = 60
+
+const isSquare = (kind: CatalogKind) => kind === 'frames' || kind === 'avatars'
+
+const chipClass = (active: boolean) =>
+  `rounded-lg border px-3 py-1.5 text-sm ${
+    active ? 'border-accent bg-accent/10 text-white' : 'border-line bg-panel text-slate-400 hover:text-white'
+  }`
+const actionButton = 'rounded-lg border border-line bg-panel px-3 py-2 text-sm text-slate-200 hover:border-slate-500'
+
+function ItemMedia({ kind, item }: { kind: CatalogKind; item: CatalogItem }) {
+  const motion = motionUrl(kind, item)
+  if ((kind === 'backgrounds' || kind === 'mini') && motion) {
+    return <video src={motion} poster={assetUrl(item, item.i)} autoPlay loop muted playsInline className="w-full rounded-lg" />
+  }
+  if (kind === 'frames') {
+    return (
+      <div className="relative mx-auto size-56">
+        <div className="absolute inset-[26px] rounded-sm bg-slate-600" />
+        <img src={motion ?? assetUrl(item, item.i)} alt="" className="absolute inset-0 size-full" />
+      </div>
+    )
+  }
+  if (kind === 'avatars') {
+    return <img src={motion ?? assetUrl(item, item.i)} alt="" className="mx-auto size-48 rounded-sm" />
+  }
+  return <img src={assetUrl(item, item.i)} alt="" className="w-full rounded-lg" />
+}
+
+function ItemDialog(props: {
+  kind: CatalogKind
+  item: CatalogItem
+  game: string
+  onClose: () => void
+  onCut: () => void
+  onTry: (() => void) | null
+}) {
+  const { t, i18n } = useTranslation()
+  const { kind, item, onClose } = props
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" onClick={onClose}>
+      <div
+        className="max-h-full w-full max-w-4xl overflow-auto rounded-xl border border-line bg-ink p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <ItemMedia kind={kind} item={item} />
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-medium text-white">{item.n}</h2>
+            <p className="text-sm text-slate-400">{props.game}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {t('gallery.points', { points: item.p.toLocaleString(i18n.language) })}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="text-sm text-slate-400 hover:text-white">
+            {t('gallery.close')}
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href={pointsShopUrl(item)} target="_blank" rel="noreferrer" className={actionButton}>
+            {t('gallery.openShop')}
+          </a>
+          {kind === 'backgrounds' && (
+            <button type="button" onClick={props.onCut} className={actionButton}>
+              {t('gallery.cut')}
+            </button>
+          )}
+          {props.onTry && (
+            <button type="button" onClick={props.onTry} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-ink">
+              {t('gallery.tryOn')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function Gallery() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { lang } = useParams()
+  const [kind, setKind] = useState<CatalogKind>('backgrounds')
+  const [items, setItems] = useState<CatalogItem[] | null>(null)
+  // пока не знаем, какие игры для взрослых, каталог не показываем
+  const [apps, setApps] = useState<CatalogApps | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [query, setQuery] = useState('')
+  const [animatedOnly, setAnimatedOnly] = useState(false)
+  const [showAdult, setShowAdult] = useState(false)
+  const [sort, setSort] = useState<Sort>('new')
+  const [limit, setLimit] = useState(PAGE)
+  const [selected, setSelected] = useState<CatalogItem | null>(null)
+  const sentinel = useRef<HTMLDivElement>(null)
+  const deferredQuery = useDeferredValue(query)
+
+  useEffect(() => {
+    loadApps()
+      .then(setApps)
+      .catch(() => setApps({ names: {}, adult: new Set() }))
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    setItems(null)
+    setFailed(false)
+    loadKind(kind)
+      .then((list) => alive && setItems(list))
+      .catch(() => alive && setFailed(true))
+    return () => {
+      alive = false
+    }
+  }, [kind])
+
+  useEffect(() => {
+    setLimit(PAGE)
+  }, [kind, deferredQuery, animatedOnly, showAdult, sort])
+
+  const gameName = (item: CatalogItem) => apps?.names[item.a] ?? t('gallery.app', { id: item.a })
+  const ready = items && apps
+
+  const filtered = useMemo(() => {
+    if (!items || !apps) return []
+    const q = deferredQuery.trim().toLowerCase()
+    let list = animatedOnly ? items.filter((it) => it.an) : items
+    if (!showAdult) list = list.filter((it) => !apps.adult.has(it.a))
+    if (q) list = list.filter((it) => it.n.toLowerCase().includes(q) || (apps.names[it.a] ?? '').toLowerCase().includes(q))
+    const sorted = [...list]
+    if (sort === 'new') sorted.sort((a, b) => b.t - a.t || b.d - a.d)
+    else if (sort === 'cheap') sorted.sort((a, b) => a.p - b.p)
+    else sorted.sort((a, b) => b.p - a.p)
+    return sorted
+  }, [items, deferredQuery, animatedOnly, showAdult, sort, apps])
+
+  // подгружаем следующую порцию, когда долистали до конца
+  useEffect(() => {
+    const el = sentinel.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) setLimit((l) => l + PAGE)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [items])
+
+  function cut(item: CatalogItem) {
+    const src = assetUrl(item, item.w ?? item.i)
+    navigate(`/${lang}/cutter?src=${encodeURIComponent(src)}`)
+  }
+
+  function tryOnAction(item: CatalogItem): (() => void) | null {
+    const go = () => navigate(`/${lang}/preview`)
+    if (kind === 'backgrounds') {
+      const video = item.w ?? item.m
+      return () => {
+        showcaseStore.tryOn({ background: { url: assetUrl(item, video ?? item.i), isVideo: !!video } })
+        go()
+      }
+    }
+    if (kind === 'frames') {
+      return () => {
+        showcaseStore.tryOn({ frame: assetUrl(item, item.s ?? item.i) })
+        go()
+      }
+    }
+    if (kind === 'avatars') {
+      return () => {
+        showcaseStore.tryOn({ avatar: assetUrl(item, item.s ?? item.i) })
+        go()
+      }
+    }
+    return null
+  }
+
+  const square = isSquare(kind)
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <h1 className="text-2xl font-semibold text-white">{t('gallery.title')}</h1>
+      <p className="mt-2 max-w-2xl text-slate-400">{t('gallery.lead')}</p>
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <button key={tab} type="button" onClick={() => setKind(tab)} className={chipClass(tab === kind)}>
+            {t(`gallery.tabs.${tab}`)}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('gallery.search')}
+          className="w-72 max-w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+        />
+        {kind !== 'profiles' && (
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" checked={animatedOnly} onChange={(e) => setAnimatedOnly(e.target.checked)} className="accent-accent" />
+            {t('gallery.animatedOnly')}
+          </label>
+        )}
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={showAdult} onChange={(e) => setShowAdult(e.target.checked)} className="accent-accent" />
+          {t('gallery.showAdult')}
+        </label>
+        <div className="flex gap-1">
+          {SORTS.map((s) => (
+            <button key={s} type="button" onClick={() => setSort(s)} className={chipClass(s === sort)}>
+              {t(`gallery.sort.${s}`)}
+            </button>
+          ))}
+        </div>
+        {ready && <span className="text-sm text-slate-500">{t('gallery.count', { count: filtered.length })}</span>}
+      </div>
+
+      {failed && <p className="mt-8 text-red-400">{t('gallery.error')}</p>}
+      {!ready && !failed && <p className="mt-8 text-slate-500">{t('gallery.loading')}</p>}
+      {ready && filtered.length === 0 && <p className="mt-8 text-slate-500">{t('gallery.empty')}</p>}
+
+      <div
+        className={`mt-6 grid gap-3 ${
+          square ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
+        }`}
+      >
+        {filtered.slice(0, limit).map((item) => (
+          <button
+            key={item.d}
+            type="button"
+            onClick={() => setSelected(item)}
+            className="group relative overflow-hidden rounded-lg border border-line bg-panel text-left transition-colors hover:border-accent"
+          >
+            <img
+              src={thumbUrl(kind, item)}
+              alt=""
+              loading="lazy"
+              className={square ? 'aspect-square w-full object-contain p-2' : 'aspect-[16/10] w-full object-cover'}
+            />
+            {item.an && (
+              <span className="absolute right-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200">
+                {t('gallery.animated')}
+              </span>
+            )}
+            <div className="p-2">
+              <div className="truncate text-sm text-white">{item.n}</div>
+              <div className="truncate text-xs text-slate-500">{gameName(item)}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div ref={sentinel} className="h-10" />
+
+      {selected && (
+        <ItemDialog
+          kind={kind}
+          item={selected}
+          game={gameName(selected)}
+          onClose={() => setSelected(null)}
+          onCut={() => cut(selected)}
+          onTry={tryOnAction(selected)}
+        />
+      )}
+    </div>
+  )
+}

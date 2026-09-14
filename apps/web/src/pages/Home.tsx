@@ -5,7 +5,7 @@ const TOOLS = [
   { id: 'cutter', path: 'cutter' },
   { id: 'optimizer' },
   { id: 'preview', path: 'preview' },
-  { id: 'backgrounds' },
+  { id: 'backgrounds', path: 'backgrounds' },
   { id: 'infobox' },
   { id: 'helper' },
 ] as const

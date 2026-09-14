@@ -36,6 +36,9 @@ export default function Layout() {
             <NavLink to={`/${lang}/preview`} className={navClass}>
               {t('nav.preview')}
             </NavLink>
+            <NavLink to={`/${lang}/backgrounds`} className={navClass}>
+              {t('nav.gallery')}
+            </NavLink>
             <NavLink to={`/${lang}/guide`} className={navClass}>
               {t('nav.guide')}
             </NavLink>

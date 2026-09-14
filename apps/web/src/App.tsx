@@ -5,6 +5,7 @@ import Home from './pages/Home'
 import Cutter from './pages/Cutter'
 import Preview from './pages/Preview'
 import Guide from './pages/Guide'
+import Gallery from './pages/Gallery'
 import Check from './pages/Check'
 import { detectLang } from './i18n'
 
@@ -21,6 +22,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="cutter" element={<Cutter />} />
         <Route path="preview" element={<Preview />} />
+        <Route path="backgrounds" element={<Gallery />} />
         <Route path="guide" element={<Guide />} />
         <Route path="check" element={<Check />} />
         <Route path="*" element={<NotFound />} />

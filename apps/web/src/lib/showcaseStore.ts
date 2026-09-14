@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { ShowcaseKind } from '@profile-editor/core'
 import type { ExportedFile } from './exportSlices'
 
-// Общее место, через которое нарезчик отдаёт готовые витрины и фон в превью профиля.
+// Общее место, через которое нарезчик и каталог отдают данные в превью профиля.
 // Живёт только пока открыта вкладка, на сервер ничего не уходит
 
 export interface ShowcaseDraft {
@@ -16,12 +16,20 @@ export interface BackgroundDraft {
   isVideo: boolean
 }
 
+// Что примерить из каталога: превью заберёт это при открытии
+export interface TryOn {
+  background?: { url: string; isVideo: boolean }
+  frame?: string
+  avatar?: string
+}
+
 interface State {
   showcases: ShowcaseDraft[]
   background: BackgroundDraft | null
+  tryOn: TryOn | null
 }
 
-let state: State = { showcases: [], background: null }
+let state: State = { showcases: [], background: null, tryOn: null }
 const listeners = new Set<() => void>()
 
 function update(next: Partial<State>) {
@@ -46,6 +54,12 @@ export const showcaseStore = {
   },
   setBackground(background: BackgroundDraft | null) {
     update({ background })
+  },
+  tryOn(next: TryOn) {
+    update({ tryOn: { ...state.tryOn, ...next } })
+  },
+  clearTryOn() {
+    update({ tryOn: null })
   },
 }
 

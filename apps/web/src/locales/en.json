@@ -2,6 +2,7 @@
   "nav": {
     "cutter": "Cutter",
     "preview": "Preview",
+    "gallery": "Catalog",
     "guide": "How to upload",
     "check": "Check"
   },
@@ -28,7 +29,7 @@
       },
       "backgrounds": {
         "title": "Backgrounds and frames",
-        "text": "Points Shop catalog and backgrounds that match the colors of your art."
+        "text": "Backgrounds, mini profiles, frames and avatars from the Points Shop with search and try-on."
       },
       "infobox": {
         "title": "Info box",
@@ -152,7 +153,7 @@
       "title": "Background",
       "file": "Own background",
       "fromCutter": "From cutter",
-      "fromProfile": "From profile",
+      "fromProfile": "From profile or catalog",
       "fullWidth": "Full screen",
       "fullWidthHint": "Steam stretches the background to the window width in this mode, so the cut parts drift. For aligned showcases keep the background at original size.",
       "width": "Window width"
@@ -178,6 +179,36 @@
       "screenshot": "Screenshot Showcase",
       "workshop": "Workshop Showcase"
     }
+  },
+  "gallery": {
+    "title": "Points Shop catalog",
+    "lead": "Every background, mini profile, frame and avatar sold for Steam points. Updated daily.",
+    "tabs": {
+      "backgrounds": "Backgrounds",
+      "mini": "Mini profiles",
+      "frames": "Frames",
+      "avatars": "Avatars",
+      "profiles": "Game profiles"
+    },
+    "search": "Name or game",
+    "animatedOnly": "Animated only",
+    "showAdult": "Show 18+",
+    "sort": {
+      "new": "Newest first",
+      "cheap": "Cheapest first",
+      "expensive": "Priciest first"
+    },
+    "count": "Found: {{count}}",
+    "loading": "Loading the catalog…",
+    "error": "Couldn't load the catalog. Refresh the page.",
+    "empty": "Nothing found.",
+    "animated": "animated",
+    "points": "{{points}} points",
+    "openShop": "Open in the Points Shop",
+    "cut": "Cut for a showcase",
+    "tryOn": "Try on in preview",
+    "close": "Close",
+    "app": "App {{id}}"
   },
   "guide": {
     "title": "How to upload a design to Steam",

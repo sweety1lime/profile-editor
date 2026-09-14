@@ -116,7 +116,8 @@
       "step2": "2. Pick the file and open the browser console: Ctrl+Shift+J in Chrome, Ctrl+Shift+K in Firefox. In Firefox type allow pasting first.",
       "step3": "3. Paste the code below, press Enter and save. If there are several files, upload them in the numbered order.",
       "note": "In the artwork list the picture will look like a thin line, that's expected.",
-      "workshopNote": "Then add each file to favorites and pick them in the workshop showcase in the same order."
+      "workshopNote": "Then add each file to favorites and pick them in the workshop showcase in the same order.",
+      "helper": "Don't feel like using the console? Install the upload helper."
     },
     "readme": "Files for the \"{{kind}}\" showcase",
     "errors": {
@@ -223,6 +224,19 @@
   "guide": {
     "title": "How to upload a design to Steam",
     "lead": "Steam doesn't let you upload long pictures directly, so on the upload page you paste a short code into the browser console. Sounds scary, takes a minute.",
+    "helper": {
+      "title": "Upload helper",
+      "text": "A userscript for Tampermonkey or Violentmonkey. A panel shows up on the Steam upload page: pick the showcase, then the file, and the codes are filled in for you. No more console.",
+      "steps": [
+        "Install the Tampermonkey or Violentmonkey extension.",
+        "Press \"Install script\" and confirm.",
+        "Open the artwork upload page, the panel appears in the bottom right corner.",
+        "Pick the showcase, then the file. For workshop and guides the GIF gets the hex patch automatically.",
+        "Tick the box saying it's your work and save."
+      ],
+      "install": "Install script",
+      "note": "The script only runs on the artwork upload page and doesn't send anything anywhere. It never ticks the \"it's my work\" box, that one is on you."
+    },
     "before": {
       "title": "Before you start",
       "items": [

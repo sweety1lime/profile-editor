@@ -10,9 +10,9 @@
   },
   "scripts": {
     "dev": "npm run dev -w apps/web --",
-    "build": "npm run build -w apps/web",
+    "build": "npm run build -w packages/userscript && npm run build -w apps/web",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/core && tsc -p apps/web && tsc -p api",
+    "typecheck": "tsc -p packages/core && tsc -p packages/userscript && tsc -p apps/web && tsc -p api",
     "lint": "eslint ."
   },
   "devDependencies": {

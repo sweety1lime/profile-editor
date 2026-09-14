@@ -81,6 +81,23 @@ export default function Guide() {
         <p className="mt-3 text-slate-400">{t('guide.lead')}</p>
       </div>
 
+      <section id="helper" className="rounded-xl border border-accent/40 bg-accent/5 p-6">
+        <h2 className="text-lg font-medium text-white">{t('guide.helper.title')}</h2>
+        <p className="mt-2 text-sm text-slate-300">{t('guide.helper.text')}</p>
+        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-slate-300">
+          {list('guide.helper.steps').map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <a
+          href="/profile-editor.user.js"
+          className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-ink"
+        >
+          {t('guide.helper.install')}
+        </a>
+        <p className="mt-3 text-xs text-slate-500">{t('guide.helper.note')}</p>
+      </section>
+
       <section>
         <h2 className="text-lg font-medium text-white">{t('guide.before.title')}</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-300">

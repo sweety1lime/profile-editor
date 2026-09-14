@@ -9,7 +9,7 @@ export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['apps/web/src/**/*.{ts,tsx}'],
+    files: ['apps/web/src/**/*.{ts,tsx}', 'packages/userscript/src/**/*.ts'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },
     rules: {

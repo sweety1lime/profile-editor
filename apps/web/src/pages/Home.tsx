@@ -7,7 +7,7 @@ const TOOLS = [
   { id: 'preview', path: 'preview' },
   { id: 'backgrounds', path: 'backgrounds' },
   { id: 'infobox' },
-  { id: 'helper' },
+  { id: 'helper', path: 'guide' },
 ] as const
 
 export default function Home() {

@@ -1,0 +1,13 @@
+// ==UserScript==
+// @name         Profile Editor — загрузка в витрины Steam
+// @name:en      Profile Editor — Steam showcase upload
+// @namespace    https://github.com/sweety1lime/profile-editor
+// @version      {{version}}
+// @description  Сам подставляет коды для длинных иллюстраций, скриншотов, мастерской и гайдов на странице загрузки Steam
+// @description:en Fills in the codes for long artwork, screenshots, workshop and guides on the Steam upload page
+// @author       sweety1lime
+// @homepageURL  https://github.com/sweety1lime/profile-editor
+// @match        https://steamcommunity.com/sharedfiles/edititem/767/3*
+// @grant        none
+// @run-at       document-idle
+// ==/UserScript==

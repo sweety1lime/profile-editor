@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   FPS_OPTIONS,
@@ -503,6 +503,11 @@ export default function Cutter() {
             <p>{t('cutter.upload.step3')}</p>
             <pre className="overflow-x-auto rounded bg-ink p-2 text-xs text-slate-300">{UPLOAD_SNIPPETS[kind]}</pre>
             <CopyButton text={UPLOAD_SNIPPETS[kind]} />
+            <p className="text-xs">
+              <Link to={`/${lang}/guide#helper`} className="text-accent hover:underline">
+                {t('cutter.upload.helper')}
+              </Link>
+            </p>
             <p className="text-xs text-slate-500">
               {t(kind === 'workshop' ? 'cutter.upload.workshopNote' : 'cutter.upload.note')}
             </p>

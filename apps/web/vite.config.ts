@@ -23,4 +23,6 @@ function steamApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), steamApi()],
+  // воркер вырезки фона грузит части transformers динамически, это работает только в формате ES
+  worker: { format: 'es' },
 })

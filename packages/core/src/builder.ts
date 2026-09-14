@@ -23,6 +23,8 @@ export interface LayerBase {
 export interface ImageLayer extends LayerBase {
   type: 'image'
   assetId: string
+  // картинка до вырезки фона, чтобы можно было вернуть как было
+  originalAssetId?: string
   width: number
   height: number
 }

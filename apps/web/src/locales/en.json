@@ -226,6 +226,23 @@
       "strength": "Strength",
       "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it."
     },
+    "cutout": {
+      "title": "Remove background",
+      "models": {
+        "quality": "Quality · 42 MB",
+        "fast": "People · 6 MB"
+      },
+      "empty": "The model didn't find anything in the picture. For anime and objects use Quality.",
+      "run": "Remove background",
+      "downloading": "Downloading the model… {{percent}}%",
+      "running": "Cutting out…",
+      "restore": "Undo",
+      "error": "Didn't work. The model is downloaded from Hugging Face, which is sometimes flaky, try again.",
+      "note": {
+        "quality": "RMBG-1.4 model by BRIA AI, non-commercial use only. Good with anime characters and objects. Downloaded once, then taken from the browser cache.",
+        "fast": "MODNet is trained on photos of people: it doesn't see anime or objects, use Quality for those. Downloaded once, then taken from the browser cache."
+      }
+    },
     "animations": {
       "none": "None",
       "float": "Float",

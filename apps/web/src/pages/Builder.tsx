@@ -25,6 +25,7 @@ import BuilderStage from '../components/BuilderStage'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
 import { drawScene, sceneSource, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
 import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
+import { removeBackground, type CutoutModel } from '../lib/cutout'
 import { FONTS, useFontsReady } from '../lib/fonts'
 import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromFile, fromLink, type Source } from '../lib/source'
@@ -68,6 +69,9 @@ export default function Builder() {
   const [busy, setBusy] = useState<Busy | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
+  const [cutoutModel, setCutoutModel] = useState<CutoutModel>('quality')
+  const [cutout, setCutout] = useState<{ layerId: string; stage: 'download' | 'run'; percent: number } | null>(null)
+  const [cutoutError, setCutoutError] = useState<'failed' | 'empty' | null>(null)
   const backgroundInput = useRef<HTMLInputElement>(null)
   const imageInput = useRef<HTMLInputElement>(null)
   const fontsVersion = useFontsReady(layers)
@@ -155,8 +159,11 @@ export default function Builder() {
   function removeLayer(id: string) {
     const layer = layers.find((l) => l.id === id)
     if (layer?.type === 'image') {
-      assets.get(layer.assetId)?.close()
-      assets.delete(layer.assetId)
+      for (const id of [layer.assetId, layer.originalAssetId]) {
+        if (!id) continue
+        assets.get(id)?.close()
+        assets.delete(id)
+      }
     }
     setLayers((list) => list.filter((l) => l.id !== id))
     if (selectedId === id) setSelectedId(null)
@@ -221,6 +228,55 @@ export default function Builder() {
     setLayers((list) => [...list, layer])
     setSelectedId(id)
     resetResult()
+  }
+
+  async function cutBackground(layer: ImageLayer) {
+    const bitmap = assets.get(layer.assetId)
+    if (!bitmap) return
+    setCutoutError(null)
+    setCutout({ layerId: layer.id, stage: 'download', percent: 0 })
+    try {
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+      const blob = await canvas.convertToBlob({ type: 'image/png' })
+      const cut = await removeBackground(blob, cutoutModel, (stage, percent) =>
+        setCutout({ layerId: layer.id, stage, percent }),
+      )
+      const id = newId()
+      assets.set(id, cut)
+      // прошлую вырезку выбрасываем, оригинал оставляем
+      if (layer.originalAssetId) {
+        assets.get(layer.assetId)?.close()
+        assets.delete(layer.assetId)
+      }
+      setAssetsVersion((v) => v + 1)
+      updateLayer(layer.id, {
+        assetId: id,
+        originalAssetId: layer.originalAssetId ?? layer.assetId,
+        width: cut.width,
+        height: cut.height,
+      })
+    } catch (err) {
+      const empty = err instanceof Error && err.message === 'empty'
+      if (!empty) console.warn('background removal failed:', err)
+      setCutoutError(empty ? 'empty' : 'failed')
+    } finally {
+      setCutout(null)
+    }
+  }
+
+  function restoreOriginal(layer: ImageLayer) {
+    if (!layer.originalAssetId) return
+    const original = assets.get(layer.originalAssetId)
+    assets.get(layer.assetId)?.close()
+    assets.delete(layer.assetId)
+    setAssetsVersion((v) => v + 1)
+    updateLayer(layer.id, {
+      assetId: layer.originalAssetId,
+      originalAssetId: undefined,
+      width: original?.width ?? layer.width,
+      height: original?.height ?? layer.height,
+    })
   }
 
   function readme() {
@@ -446,6 +502,43 @@ export default function Builder() {
         {selected && (
           <Section title={t('builder.layer.title')}>
             <div className="space-y-3 text-sm">
+              {selected.type === 'image' && (
+                <div className="space-y-2 rounded-lg border border-line bg-panel/60 p-3" data-cutout>
+                  <div className="text-slate-300">{t('builder.cutout.title')}</div>
+                  <div className="flex gap-1">
+                    {(['quality', 'fast'] as const).map((model) => (
+                      <button key={model} type="button" onClick={() => setCutoutModel(model)} className={chipClass(model === cutoutModel)}>
+                        {t(`builder.cutout.models.${model}`)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={!!cutout}
+                      onClick={() => cutBackground(selected)}
+                      className={`${secondaryButton} flex-1`}
+                    >
+                      {cutout?.layerId === selected.id
+                        ? cutout.stage === 'download'
+                          ? t('builder.cutout.downloading', { percent: Math.round(cutout.percent) })
+                          : t('builder.cutout.running')
+                        : t('builder.cutout.run')}
+                    </button>
+                    {selected.originalAssetId && (
+                      <button type="button" disabled={!!cutout} onClick={() => restoreOriginal(selected)} className={secondaryButton}>
+                        {t('builder.cutout.restore')}
+                      </button>
+                    )}
+                  </div>
+                  {cutoutError && (
+                    <p className="text-xs text-red-400">
+                      {t(cutoutError === 'empty' ? 'builder.cutout.empty' : 'builder.cutout.error')}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500">{t(`builder.cutout.note.${cutoutModel}`)}</p>
+                </div>
+              )}
               {selected.type === 'text' && (
                 <>
                   <textarea

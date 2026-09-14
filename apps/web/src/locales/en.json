@@ -3,11 +3,13 @@
     "cutter": "Cutter",
     "preview": "Preview",
     "gallery": "Catalog",
+    "infobox": "Text",
     "guide": "How to upload",
     "check": "Check"
   },
   "common": {
     "copy": "Copy code",
+    "copyText": "Copy",
     "copied": "Copied"
   },
   "home": {
@@ -180,6 +182,71 @@
       "featured": "Featured Artwork",
       "screenshot": "Screenshot Showcase",
       "workshop": "Workshop Showcase"
+    }
+  },
+  "infobox": {
+    "title": "Info box",
+    "lead": "An editor for the custom info box and profile summary. Write BBCode on the left, see how Steam will show it on the right.",
+    "showcaseTitle": "Showcase title",
+    "defaultTitle": "About me",
+    "sample": "[h1]Hi![/h1]\nI play here and sometimes make profile designs.\n\n[b]Favorites:[/b]\n[list]\n[*]indie games\n[*]roguelikes\n[*]co-op in the evenings\n[/list]\n[hr][/hr]\nAdd me if you want to play together.",
+    "placeholder": "[h1]Hi[/h1]\nA bit about me…",
+    "counter": "{{count}} / {{limit}}",
+    "tooLong": "Steam cuts everything after 8000 characters.",
+    "heightNote": "Steam shows the showcase up to 600 px tall, after that it scrolls.",
+    "centerHint": "Centering is approximate: Steam uses its own font, a line may shift by a character or two.",
+    "item": "item",
+    "tableHead": "Header",
+    "tableCell": "Cell",
+    "tools": {
+      "b": "Bold",
+      "i": "Italic",
+      "u": "Underline",
+      "strike": "Strikethrough",
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "h3": "Heading 3",
+      "spoiler": "Spoiler",
+      "url": "Link",
+      "list": "List",
+      "quote": "Quote",
+      "code": "Code",
+      "hr": "Line",
+      "table": "Table",
+      "center": "Center",
+      "clear": "Clear"
+    },
+    "braille": {
+      "title": "Picture to symbols",
+      "text": "Turns a picture into a pattern of braille symbols. They all have the same width, so the drawing doesn't fall apart like regular ASCII art.",
+      "pick": "Choose a picture",
+      "width": "Width, symbols",
+      "threshold": "Threshold",
+      "invert": "Dots on light areas",
+      "invertHint": "Dots are light on the dark Steam background, so this usually looks better.",
+      "dither": "Halftones",
+      "insert": "Insert into text",
+      "size": "{{cols}} × {{rows}} symbols"
+    },
+    "nick": {
+      "title": "Name styles",
+      "text": "Unicode letters that look like a different font. Latin letters and digits only, Cyrillic doesn't have them.",
+      "placeholder": "Your name",
+      "invisible": "Invisible name",
+      "invisibleHint": "The U+3164 filler, your name looks empty."
+    },
+    "styles": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "boldItalic": "Bold italic",
+      "script": "Script",
+      "fraktur": "Fraktur",
+      "doubleStruck": "Double-struck",
+      "sans": "Sans",
+      "monospace": "Monospace",
+      "fullwidth": "Fullwidth",
+      "circled": "Circled",
+      "smallCaps": "Small caps"
     }
   },
   "gallery": {

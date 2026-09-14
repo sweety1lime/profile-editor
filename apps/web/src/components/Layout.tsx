@@ -33,6 +33,9 @@ export default function Layout() {
             <NavLink to={`/${lang}/cutter`} className={navClass}>
               {t('nav.cutter')}
             </NavLink>
+            <NavLink to={`/${lang}/builder`} className={navClass}>
+              {t('nav.builder')}
+            </NavLink>
             <NavLink to={`/${lang}/preview`} className={navClass}>
               {t('nav.preview')}
             </NavLink>
@@ -44,9 +47,6 @@ export default function Layout() {
             </NavLink>
             <NavLink to={`/${lang}/guide`} className={navClass}>
               {t('nav.guide')}
-            </NavLink>
-            <NavLink to={`/${lang}/check`} className={navClass}>
-              {t('nav.check')}
             </NavLink>
           </nav>
           <div className="ml-auto flex gap-1 text-sm">

@@ -57,6 +57,7 @@ function ItemDialog(props: {
   palette: PaletteColor[]
   onClose: () => void
   onCut: () => void
+  onBuild: () => void
   onTry: (() => void) | null
 }) {
   const { t, i18n } = useTranslation()
@@ -93,9 +94,14 @@ function ItemDialog(props: {
             {t('gallery.openShop')}
           </a>
           {kind === 'backgrounds' && (
-            <button type="button" onClick={props.onCut} className={actionButton}>
-              {t('gallery.cut')}
-            </button>
+            <>
+              <button type="button" onClick={props.onCut} className={actionButton}>
+                {t('gallery.cut')}
+              </button>
+              <button type="button" onClick={props.onBuild} className={actionButton}>
+                {t('gallery.build')}
+              </button>
+            </>
           )}
           {props.onTry && (
             <button type="button" onClick={props.onTry} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-ink">
@@ -220,9 +226,9 @@ export default function Gallery() {
     return decodePalette(palettes[indexById.get(item.d) ?? -1] ?? '')
   }
 
-  function cut(item: CatalogItem) {
+  function openWith(page: 'cutter' | 'builder', item: CatalogItem) {
     const src = assetUrl(item, item.w ?? item.i)
-    navigate(`/${lang}/cutter?src=${encodeURIComponent(src)}`)
+    navigate(`/${lang}/${page}?src=${encodeURIComponent(src)}`)
   }
 
   function tryOnAction(item: CatalogItem): (() => void) | null {
@@ -381,7 +387,8 @@ export default function Gallery() {
           game={gameName(selected)}
           palette={itemPalette(selected)}
           onClose={() => setSelected(null)}
-          onCut={() => cut(selected)}
+          onCut={() => openWith('cutter', selected)}
+          onBuild={() => openWith('builder', selected)}
           onTry={tryOnAction(selected)}
         />
       )}

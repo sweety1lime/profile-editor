@@ -7,6 +7,7 @@ import Preview from './pages/Preview'
 import Guide from './pages/Guide'
 import Gallery from './pages/Gallery'
 import Infobox from './pages/Infobox'
+import Builder from './pages/Builder'
 import Check from './pages/Check'
 import { detectLang } from './i18n'
 
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/:lang" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="cutter" element={<Cutter />} />
+        <Route path="builder" element={<Builder />} />
         <Route path="preview" element={<Preview />} />
         <Route path="backgrounds" element={<Gallery />} />
         <Route path="infobox" element={<Infobox />} />

@@ -1,6 +1,7 @@
 {
   "nav": {
     "cutter": "Cutter",
+    "builder": "Builder",
     "preview": "Preview",
     "gallery": "Catalog",
     "infobox": "Text",
@@ -20,6 +21,10 @@
       "cutter": {
         "title": "Showcase cutter",
         "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF, a video or an animated Steam background."
+      },
+      "builder": {
+        "title": "Builder",
+        "text": "Your own picture for a showcase: background, character, captions and light animation. Comes out as ready Steam parts."
       },
       "optimizer": {
         "title": "GIFs under 5 MB",
@@ -184,6 +189,59 @@
       "workshop": "Workshop Showcase"
     }
   },
+  "builder": {
+    "title": "Builder",
+    "lead": "Put together your own picture for a showcase: background, character, captions and light animation. Comes out as ready Steam parts.",
+    "empty": "Load a background on the left or add a picture and text right away.",
+    "defaultText": "Your name",
+    "background": {
+      "title": "Background",
+      "hint": "Drag an empty spot to move the background, scroll over an empty spot to zoom it."
+    },
+    "layers": {
+      "title": "Layers",
+      "addImage": "Picture",
+      "addText": "Text",
+      "empty": "Add a character picture or a caption. A PNG with a transparent background works best.",
+      "hide": "Hide",
+      "show": "Show",
+      "up": "Up",
+      "down": "Down",
+      "remove": "Delete"
+    },
+    "layer": {
+      "title": "Layer",
+      "text": "Text",
+      "font": "Font",
+      "size": "Font size",
+      "bold": "Bold",
+      "color": "Color",
+      "strokeColor": "Outline",
+      "stroke": "Outline width",
+      "glow": "Glow",
+      "scale": "Size",
+      "rotation": "Rotation",
+      "opacity": "Opacity",
+      "animation": "Animation",
+      "strength": "Strength",
+      "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it."
+    },
+    "animations": {
+      "none": "None",
+      "float": "Float",
+      "breathe": "Breathe",
+      "sway": "Sway",
+      "pulse": "Flicker",
+      "shake": "Shake"
+    },
+    "loop": {
+      "title": "Animation loop",
+      "duration": "Loop length",
+      "play": "Play",
+      "pause": "Pause",
+      "videoNote": "A video background stays on its first frame on the canvas, in the GIFs it moves."
+    }
+  },
   "infobox": {
     "title": "Info box",
     "lead": "An editor for the custom info box and profile summary. Write BBCode on the left, see how Steam will show it on the right.",
@@ -284,6 +342,7 @@
     "points": "{{points}} points",
     "openShop": "Open in the Points Shop",
     "cut": "Cut for a showcase",
+    "build": "Open in builder",
     "tryOn": "Try on in preview",
     "close": "Close",
     "app": "App {{id}}"

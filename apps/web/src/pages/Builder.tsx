@@ -2,87 +2,55 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
-  ANIMATIONS,
-  EFFECTS,
-  EFFECT_COLORS,
   FPS_OPTIONS,
   PROFILE_OFFSET,
   UPLOAD_LIMIT_BYTES,
-  UPLOAD_PAGE,
-  UPLOAD_SNIPPETS,
-  buildTimeline,
   clampHeight,
   fitFrame,
   hasAnimation,
   isProfileBackground,
   moveLayer,
-  packProject,
-  sliceRects,
-  unpackProject,
-  type EffectLayer,
   type Frame,
   type ImageLayer,
   type Layer,
   type ProjectData,
   type ShowcaseKind,
-  type TextLayer,
 } from '@profile-editor/core'
 import BuilderStage from '../components/BuilderStage'
+import LayerSettings, { type CutoutProgress } from '../components/LayerSettings'
 import ProjectsPanel from '../components/ProjectsPanel'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
-import { drawScene, sceneSource, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
-import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
+import { drawScene, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
 import { removeBackground, type CutoutModel } from '../lib/cutout'
-import { FONTS, useFontsReady } from '../lib/fonts'
-import { askPersistentStorage, bitmapToBlob, projectsDb, type ProjectRecord } from '../lib/projectsDb'
+import { toMegabytes, type OutFormat } from '../lib/exportSlices'
+import { useFontsReady } from '../lib/fonts'
+import { effectLayer, imageLayer, textLayer } from '../lib/newLayer'
+import { bitmapToBlob } from '../lib/projectsDb'
 import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
-import type { Progress } from '../lib/encodeGif'
+import { useAssets } from '../lib/useAssets'
+import { useProjectStorage, type Session } from '../lib/useProjectStorage'
+import { useSceneExport } from '../lib/useSceneExport'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
 const DURATIONS = [1000, 1500, 2000, 3000, 4000]
 const DEFAULT_HEIGHT = 700
-
-type Busy = Progress | { stage: 'still' }
-
-interface Result {
-  files: ExportedFile[]
-  frames?: number
-  thinned?: boolean
-}
-
-const newId = () => crypto.randomUUID()
-const newSeed = () => Math.floor(Math.random() * 2 ** 31)
-
-// проект сохраняется после небольшой паузы в правках
-const SAVE_DELAY = 600
 const THUMB_WIDTH = 120
 
-interface Session {
-  id: string
-  autoName: string
-}
-
-type ProjectError = 'import' | 'open'
-
-const fileSafe = (name: string) => name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'project'
-
-const toJpeg = (canvas: HTMLCanvasElement | null) =>
-  canvas ? new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8)) : Promise.resolve(null)
+const newId = () => crypto.randomUUID()
 
 export default function Builder() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { lang } = useParams()
   const [searchParams] = useSearchParams()
+
   const [source, setSource] = useState<Source | null>(null)
   const [kind, setKind] = useState<ShowcaseKind>('artwork')
   const [frame, setFrame] = useState<Frame | null>(null)
   const [height, setHeight] = useState(DEFAULT_HEIGHT)
   const [layers, setLayers] = useState<Layer[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [assets] = useState(() => new Map<string, ImageBitmap>())
-  const [assetsVersion, setAssetsVersion] = useState(0)
   const [durationMs, setDurationMs] = useState(2000)
   const [fps, setFps] = useState(15)
   const [playing, setPlaying] = useState(true)
@@ -91,30 +59,12 @@ export default function Builder() {
   const [link, setLink] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<Busy | null>(null)
-  const [exportError, setExportError] = useState<string | null>(null)
-  const [result, setResult] = useState<Result | null>(null)
   const [cutoutModel, setCutoutModel] = useState<CutoutModel>('quality')
-  const [cutout, setCutout] = useState<{ layerId: string; stage: 'download' | 'run'; percent: number } | null>(null)
+  const [cutout, setCutout] = useState<CutoutProgress | null>(null)
   const [cutoutError, setCutoutError] = useState<'failed' | 'empty' | null>(null)
-  const freshSession = (): Session => ({
-    id: newId(),
-    autoName: t('builder.projects.untitled', {
-      date: new Date().toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' }),
-    }),
-  })
-  // исходные файлы картинок слоёв, из них проект и сохраняется
-  const [assetBlobs] = useState(() => new Map<string, Blob>())
-  const [session, setSession] = useState(freshSession)
-  const [name, setName] = useState('')
-  const [projects, setProjects] = useState<ProjectRecord[]>([])
-  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle')
-  const [projectError, setProjectError] = useState<ProjectError | null>(null)
-  const sessionRef = useRef(session)
-  const skipSave = useRef<Session | null>(null)
-  const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
+
+  const assets = useAssets()
   const isEmpty = useRef(true)
-  const autoloaded = useRef(false)
   const backgroundInput = useRef<HTMLInputElement>(null)
   const imageInput = useRef<HTMLInputElement>(null)
   const fontsVersion = useFontsReady(layers)
@@ -131,6 +81,33 @@ export default function Builder() {
   const selected = layers.find((l) => l.id === selectedId) ?? null
   const animated = hasAnimation(layers) || source?.type === 'animated'
 
+  const exporter = useSceneExport({
+    scene,
+    background,
+    assets: assets.bitmaps,
+    source,
+    frame,
+    format,
+    hex,
+    animated,
+  })
+
+  // всё, что попадает в сохранённый проект: поменялось — пора сохраняться заново
+  const revision = useMemo(
+    () => [source, kind, frame, height, layers, durationMs, fps, format, hex, assets.version],
+    [source, kind, frame, height, layers, durationMs, fps, format, hex, assets.version],
+  )
+
+  const storage = useProjectStorage({
+    revision,
+    dirty: !!source || layers.length > 0,
+    // пришли из каталога со ссылкой на фон: последнюю работу не открываем
+    autoload: !searchParams.get('src'),
+    snapshot,
+    apply: applyProject,
+    reset: resetDocument,
+  })
+
   useEffect(() => {
     return () => {
       if (source) disposeSource(source)
@@ -138,17 +115,8 @@ export default function Builder() {
   }, [source])
 
   useEffect(() => {
-    return () => assets.forEach((bitmap) => bitmap.close())
-  }, [assets])
-
-  useEffect(() => {
     isEmpty.current = !source && layers.length === 0
   }, [source, layers])
-
-  function resetResult() {
-    setResult(null)
-    setExportError(null)
-  }
 
   async function loadBackground(task: () => Promise<Source>) {
     setLoading(true)
@@ -159,7 +127,7 @@ export default function Builder() {
       setSource(next)
       setFrame(fitted)
       setHeight(fitted.height)
-      resetResult()
+      exporter.reset()
     } catch (err) {
       setError(err instanceof SourceError ? err.code : 'load_failed')
     } finally {
@@ -184,7 +152,7 @@ export default function Builder() {
   function changeKind(next: ShowcaseKind) {
     setKind(next)
     setHex(next === 'workshop')
-    resetResult()
+    exporter.reset()
     if (!source || !frame) return
     setFrame(
       isProfileBackground(source.width)
@@ -195,27 +163,26 @@ export default function Builder() {
 
   function changeFrame(next: Frame) {
     setFrame(next)
-    resetResult()
+    exporter.reset()
   }
 
   function updateLayer(id: string, patch: Partial<Layer>) {
     setLayers((list) => list.map((l) => (l.id === id ? ({ ...l, ...patch } as Layer) : l)))
-    resetResult()
+    exporter.reset()
   }
 
   function removeLayer(id: string) {
     const layer = layers.find((l) => l.id === id)
-    if (layer?.type === 'image') {
-      for (const id of [layer.assetId, layer.originalAssetId]) {
-        if (!id) continue
-        assets.get(id)?.close()
-        assets.delete(id)
-        assetBlobs.delete(id)
-      }
-    }
+    if (layer?.type === 'image') assets.forget(layer.assetId, layer.originalAssetId)
     setLayers((list) => list.filter((l) => l.id !== id))
     if (selectedId === id) setSelectedId(null)
-    resetResult()
+    exporter.reset()
+  }
+
+  function addLayer(layer: Layer) {
+    setLayers((list) => [...list, layer])
+    setSelectedId(layer.id)
+    exporter.reset()
   }
 
   async function addImage(file?: File) {
@@ -226,88 +193,12 @@ export default function Builder() {
       return
     }
     const id = newId()
-    assets.set(id, bitmap)
-    assetBlobs.set(id, file)
-    setAssetsVersion((v) => v + 1)
-    const layer: ImageLayer = {
-      id,
-      type: 'image',
-      name: file.name,
-      assetId: id,
-      width: bitmap.width,
-      height: bitmap.height,
-      x: Math.round(width / 2),
-      y: Math.round(height / 2),
-      scale: Math.min(1, (width * 0.8) / bitmap.width, (height * 0.8) / bitmap.height),
-      rotation: 0,
-      opacity: 1,
-      visible: true,
-      animation: 'none',
-      strength: 0.6,
-    }
-    setLayers((list) => [...list, layer])
-    setSelectedId(id)
-    resetResult()
-  }
-
-  function addText() {
-    const id = newId()
-    const text = t('builder.defaultText')
-    const layer: TextLayer = {
-      id,
-      type: 'text',
-      name: text,
-      text,
-      font: 'Russo One',
-      size: 56,
-      weight: 400,
-      color: '#ffffff',
-      stroke: 3,
-      strokeColor: '#000000',
-      glow: 0,
-      x: Math.round(width / 2),
-      y: Math.round(height / 2),
-      scale: 1,
-      rotation: 0,
-      opacity: 1,
-      visible: true,
-      animation: 'none',
-      strength: 0.6,
-    }
-    setLayers((list) => [...list, layer])
-    setSelectedId(id)
-    resetResult()
-  }
-
-  function addEffect() {
-    const id = newId()
-    const layer: EffectLayer = {
-      id,
-      type: 'effect',
-      name: 'snow',
-      effect: 'snow',
-      density: 0.5,
-      speed: 0.5,
-      size: 1,
-      wind: 0.2,
-      color: EFFECT_COLORS.snow,
-      seed: newSeed(),
-      x: 0,
-      y: 0,
-      scale: 1,
-      rotation: 0,
-      opacity: 1,
-      visible: true,
-      animation: 'none',
-      strength: 0,
-    }
-    setLayers((list) => [...list, layer])
-    setSelectedId(id)
-    resetResult()
+    assets.add(id, bitmap, file)
+    addLayer(imageLayer(id, file.name, bitmap, { width, height }))
   }
 
   async function cutBackground(layer: ImageLayer) {
-    const bitmap = assets.get(layer.assetId)
+    const bitmap = assets.bitmaps.get(layer.assetId)
     if (!bitmap) return
     setCutoutError(null)
     setCutout({ layerId: layer.id, stage: 'download', percent: 0 })
@@ -317,16 +208,10 @@ export default function Builder() {
       )
       // для сохранения проекта вырезку сразу держим и файлом
       const cutBlob = await bitmapToBlob(cut)
-      const id = newId()
-      assets.set(id, cut)
-      assetBlobs.set(id, cutBlob)
       // прошлую вырезку выбрасываем, оригинал оставляем
-      if (layer.originalAssetId) {
-        assets.get(layer.assetId)?.close()
-        assets.delete(layer.assetId)
-        assetBlobs.delete(layer.assetId)
-      }
-      setAssetsVersion((v) => v + 1)
+      if (layer.originalAssetId) assets.forget(layer.assetId)
+      const id = newId()
+      assets.add(id, cut, cutBlob)
       updateLayer(layer.id, {
         assetId: id,
         originalAssetId: layer.originalAssetId ?? layer.assetId,
@@ -344,28 +229,15 @@ export default function Builder() {
 
   function restoreOriginal(layer: ImageLayer) {
     if (!layer.originalAssetId) return
-    const original = assets.get(layer.originalAssetId)
-    assets.get(layer.assetId)?.close()
-    assets.delete(layer.assetId)
-    assetBlobs.delete(layer.assetId)
-    setAssetsVersion((v) => v + 1)
+    const original = assets.bitmaps.get(layer.originalAssetId)
+    assets.forget(layer.assetId)
+    assets.bump()
     updateLayer(layer.id, {
       assetId: layer.originalAssetId,
       originalAssetId: undefined,
       width: original?.width ?? layer.width,
       height: original?.height ?? layer.height,
     })
-  }
-
-  function refreshProjects() {
-    projectsDb.list().then(setProjects).catch(() => {})
-  }
-
-  // сохранения и удаления идут строго по очереди, чтобы не перетирать друг друга
-  function queue<T>(task: () => Promise<T>): Promise<T> {
-    const next = saveQueue.current.then(task)
-    saveQueue.current = next.catch(() => {})
-    return next
   }
 
   function drawThumbnail() {
@@ -376,7 +248,7 @@ export default function Builder() {
     const ctx = canvas.getContext('2d')!
     try {
       ctx.scale(k, k)
-      drawScene(ctx, scene, 0, background, assets)
+      drawScene(ctx, scene, 0, background, assets.bitmaps)
     } catch {
       return null
     }
@@ -393,13 +265,13 @@ export default function Builder() {
     for (const layer of layers) {
       if (layer.type !== 'image') continue
       for (const id of [layer.assetId, layer.originalAssetId]) {
-        const blob = id ? assetBlobs.get(id) : undefined
+        const blob = id ? assets.blobs.get(id) : undefined
         if (id && blob) used[id] = blob
       }
     }
     const project: Omit<ProjectData, 'thumbnail'> = {
-      id: session.id,
-      name: name.trim() || session.autoName,
+      id: storage.session.id,
+      name: storage.name.trim() || storage.session.autoName,
       updatedAt: Date.now(),
       kind,
       height,
@@ -415,58 +287,22 @@ export default function Builder() {
     return { project, thumbnail: drawThumbnail() }
   }
 
-  useEffect(() => {
-    if (skipSave.current === session) {
-      skipSave.current = null
-      return
-    }
-    if (!source && layers.length === 0) return
-    const timer = setTimeout(() => {
-      // пока ждали, открыли другой проект, эти правки уже не к нему
-      if (sessionRef.current !== session) return
-      const { project, thumbnail } = snapshot()
-      queue(async () => {
-        try {
-          await projectsDb.save({ ...project, thumbnail: await toJpeg(thumbnail) })
-          askPersistentStorage()
-          if (sessionRef.current === session) setSaveState('saved')
-        } catch (err) {
-          console.warn('project save failed:', err)
-          setSaveState('error')
-        }
-        refreshProjects()
-      })
-    }, SAVE_DELAY)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, source, kind, frame, height, layers, durationMs, fps, format, hex, name, assetsVersion])
-
-  function clearAssets() {
-    assets.forEach((bitmap) => bitmap.close())
-    assets.clear()
-    assetBlobs.clear()
-  }
-
-  function startSession(next: Session) {
-    sessionRef.current = next
-    setSession(next)
-    setSaveState('idle')
-    setProjectError(null)
+  // то, что относилось к прошлой работе: подсказки, ссылка, выбранный слой, готовый архив
+  function resetView() {
     setSelectedId(null)
     setError(null)
     setLink('')
-    resetResult()
+    exporter.reset()
   }
 
-  function newProject() {
-    clearAssets()
-    startSession(freshSession())
+  function resetDocument() {
+    assets.clear()
+    assets.bump()
+    resetView()
     setSource(null)
     setFrame(null)
     setHeight(DEFAULT_HEIGHT)
     setLayers([])
-    setName('')
-    setAssetsVersion((v) => v + 1)
   }
 
   async function applyProject(data: ProjectData, onlyIfEmpty = false) {
@@ -482,7 +318,7 @@ export default function Builder() {
       } catch {
         // без фона не открываем, иначе автосохранение его потеряет
         bitmaps.forEach((bitmap) => bitmap.close())
-        setProjectError('open')
+        storage.setError('open')
         return
       }
     }
@@ -493,13 +329,11 @@ export default function Builder() {
       return
     }
 
-    clearAssets()
-    bitmaps.forEach((bitmap, id) => assets.set(id, bitmap))
-    for (const [id, blob] of Object.entries(data.assets)) assetBlobs.set(id, blob)
-    const loaded = { id: data.id, autoName: data.name }
-    skipSave.current = loaded
-    startSession(loaded)
-    setName(data.name)
+    assets.load(bitmaps, data.assets)
+    const loaded: Session = { id: data.id, autoName: data.name }
+    storage.adopt(loaded, { skip: true })
+    storage.setName(data.name)
+    resetView()
     setSource(next)
     setKind(data.kind)
     setFrame(next ? (data.frame ?? fitFrame(data.kind, next.width, next.height)) : null)
@@ -509,133 +343,16 @@ export default function Builder() {
     setFps(data.fps)
     setFormat(data.format)
     setHex(data.hex)
-    setAssetsVersion((v) => v + 1)
-  }
-
-  async function openProject(id: string, onlyIfEmpty = false) {
-    setProjectError(null)
-    const data = await projectsDb.load(id).catch(() => null)
-    if (data) await applyProject(data, onlyIfEmpty)
-    else setProjectError('open')
-  }
-
-  // без ссылки на фон продолжаем последний проект
-  useEffect(() => {
-    if (autoloaded.current) return
-    autoloaded.current = true
-    projectsDb
-      .list()
-      .then((list) => {
-        setProjects(list)
-        if (!src && list[0]) openProject(list[0].id, true)
-      })
-      .catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function deleteProject(project: ProjectRecord) {
-    if (!window.confirm(t('builder.projects.confirmDelete', { name: project.name }))) return
-    if (project.id === session.id) newProject()
-    queue(() => projectsDb.remove(project.id))
-      .catch(() => {})
-      .finally(refreshProjects)
-  }
-
-  async function exportProject() {
-    const { project, thumbnail } = snapshot()
-    const bytes = await packProject({ ...project, thumbnail: await toJpeg(thumbnail) })
-    download(new Blob([bytes as BlobPart], { type: 'application/zip' }), `${fileSafe(project.name)}.zip`)
-  }
-
-  async function importProject(file: File) {
-    setProjectError(null)
-    let data: ProjectData
-    try {
-      data = unpackProject(new Uint8Array(await file.arrayBuffer()))
-    } catch {
-      setProjectError('import')
-      return
-    }
-    // такой проект уже есть в браузере: кладём копию рядом, а не поверх
-    if (projects.some((p) => p.id === data.id)) data = { ...data, id: newId() }
-    data = { ...data, updatedAt: Date.now() }
-    try {
-      await queue(() => projectsDb.save(data))
-    } catch {
-      setSaveState('error')
-      return
-    }
-    refreshProjects()
-    await applyProject(data)
-  }
-
-  function readme() {
-    const lines = [t('cutter.readme', { kind: t(`cutter.kind.${kind}`) }), '']
-    lines.push(t('cutter.upload.step1', { url: UPLOAD_PAGE }), t('cutter.upload.step2'), t('cutter.upload.step3'))
-    lines.push('', UPLOAD_SNIPPETS[kind], '')
-    lines.push(t(kind === 'workshop' ? 'cutter.upload.workshopNote' : 'cutter.upload.note'))
-    return lines.join('\n')
-  }
-
-  async function onExport() {
-    setExportError(null)
-    const sliceFrame: Frame = { x: 0, y: 0, scale: 1, height }
-    try {
-      let next: Result
-      if (!animated) {
-        setBusy({ stage: 'still' })
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        drawScene(canvas.getContext('2d')!, scene, 0, background, assets)
-        next = { files: await renderSlices(canvas, sliceRects(kind, sliceFrame), format) }
-      } else {
-        const { encodeAnimated } = await import('../lib/encodeGif')
-        const timeline = buildTimeline(0, durationMs / 1000, fps)
-        const backgroundSource = source && frame ? { source, frame: { ...frame, height } } : null
-        const encoded = await encodeAnimated(
-          sceneSource(scene, backgroundSource, assets),
-          kind,
-          sliceFrame,
-          timeline,
-          { limit: UPLOAD_LIMIT_BYTES, hex },
-          setBusy,
-        )
-        if (!encoded) {
-          setExportError('animTooBig')
-          return
-        }
-        next = {
-          files: encoded.parts.map((part) => ({
-            name: `${part.name}.gif`,
-            blob: new Blob([part.bytes as BlobPart], { type: 'image/gif' }),
-          })),
-          frames: encoded.frameCount,
-          thinned: encoded.step > 1,
-        }
-      }
-      setResult(next)
-      download(await buildZip(next.files, readme()), `${kind}.zip`)
-    } catch {
-      setExportError('failed')
-    } finally {
-      setBusy(null)
-    }
   }
 
   function sendToPreview() {
-    if (!result) return
-    showcaseStore.addShowcase(kind, result.files)
+    if (!exporter.result) return
+    showcaseStore.addShowcase(kind, exporter.result.files)
     if (source && isProfileBackground(source.width)) {
       showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })
     }
     navigate(`/${lang}/preview`)
   }
-
-  let busyLabel: string | null = null
-  if (busy?.stage === 'still') busyLabel = t('cutter.export.working')
-  else if (busy?.stage === 'frames') busyLabel = t('cutter.export.frames', { done: busy.done, total: busy.total })
-  else if (busy?.stage === 'encode') busyLabel = t(busy.attempt > 1 ? 'cutter.export.thinning' : 'cutter.export.encoding')
 
   const layerLabel = (layer: Layer) => {
     if (layer.type === 'text') return layer.text.split('\n')[0] || '…'
@@ -653,19 +370,19 @@ export default function Builder() {
         </div>
 
         <ProjectsPanel
-          projects={projects}
-          currentId={session.id}
-          name={name}
-          placeholder={session.autoName}
-          status={saveState}
-          error={projectError}
+          projects={storage.projects}
+          currentId={storage.session.id}
+          name={storage.name}
+          placeholder={storage.session.autoName}
+          status={storage.saveState}
+          error={storage.error}
           canExport={!!source || layers.length > 0}
-          onName={setName}
-          onOpen={(project) => openProject(project.id)}
-          onDelete={deleteProject}
-          onNew={newProject}
-          onExport={exportProject}
-          onImport={importProject}
+          onName={storage.setName}
+          onOpen={(project) => storage.open(project.id)}
+          onDelete={storage.remove}
+          onNew={storage.newProject}
+          onExport={storage.exportFile}
+          onImport={storage.importFile}
         />
 
         <Section title={t('builder.background.title')}>
@@ -714,7 +431,7 @@ export default function Builder() {
               max={2000}
               onChange={(value) => {
                 setHeight(clampHeight(value))
-                resetResult()
+                exporter.reset()
               }}
             />
             {source && frame && (
@@ -746,10 +463,18 @@ export default function Builder() {
             <button type="button" onClick={() => imageInput.current?.click()} className={`${secondaryButton} flex-1`}>
               + {t('builder.layers.addImage')}
             </button>
-            <button type="button" onClick={addText} className={`${secondaryButton} flex-1`}>
+            <button
+              type="button"
+              onClick={() => addLayer(textLayer(newId(), t('builder.defaultText'), { width, height }))}
+              className={`${secondaryButton} flex-1`}
+            >
               + {t('builder.layers.addText')}
             </button>
-            <button type="button" onClick={addEffect} className={`${secondaryButton} flex-1`}>
+            <button
+              type="button"
+              onClick={() => addLayer(effectLayer(newId(), { width, height }))}
+              className={`${secondaryButton} flex-1`}
+            >
               + {t('builder.layers.addEffect')}
             </button>
           </div>
@@ -814,254 +539,16 @@ export default function Builder() {
         </Section>
 
         {selected && (
-          <Section title={t('builder.layer.title')}>
-            <div className="space-y-3 text-sm">
-              {selected.type === 'image' && (
-                <div className="space-y-2 rounded-lg border border-line bg-panel/60 p-3" data-cutout>
-                  <div className="text-slate-300">{t('builder.cutout.title')}</div>
-                  <div className="flex gap-1">
-                    {(['quality', 'fast'] as const).map((model) => (
-                      <button key={model} type="button" onClick={() => setCutoutModel(model)} className={chipClass(model === cutoutModel)}>
-                        {t(`builder.cutout.models.${model}`)}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!!cutout}
-                      onClick={() => cutBackground(selected)}
-                      className={`${secondaryButton} flex-1`}
-                    >
-                      {cutout?.layerId === selected.id
-                        ? cutout.stage === 'download'
-                          ? t('builder.cutout.downloading', { percent: Math.round(cutout.percent) })
-                          : t('builder.cutout.running')
-                        : t('builder.cutout.run')}
-                    </button>
-                    {selected.originalAssetId && (
-                      <button type="button" disabled={!!cutout} onClick={() => restoreOriginal(selected)} className={secondaryButton}>
-                        {t('builder.cutout.restore')}
-                      </button>
-                    )}
-                  </div>
-                  {cutoutError && (
-                    <p className="text-xs text-red-400">
-                      {t(cutoutError === 'empty' ? 'builder.cutout.empty' : 'builder.cutout.error')}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-500">{t(`builder.cutout.note.${cutoutModel}`)}</p>
-                </div>
-              )}
-              {selected.type === 'text' && (
-                <>
-                  <textarea
-                    value={selected.text}
-                    onChange={(e) => updateLayer(selected.id, { text: e.target.value })}
-                    rows={2}
-                    className={inputClass}
-                    aria-label={t('builder.layer.text')}
-                  />
-                  <label className="block">
-                    <span className="mb-1 block text-slate-400">{t('builder.layer.font')}</span>
-                    <select
-                      value={selected.font}
-                      onChange={(e) => updateLayer(selected.id, { font: e.target.value })}
-                      className={inputClass}
-                      style={{ fontFamily: `"${selected.font}"` }}
-                    >
-                      {FONTS.map((font) => (
-                        <option key={font} value={font} style={{ fontFamily: `"${font}"` }}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <RangeRow
-                    label={t('builder.layer.size')}
-                    display={`${selected.size}`}
-                    value={selected.size}
-                    min={10}
-                    max={200}
-                    onChange={(size) => updateLayer(selected.id, { size })}
-                  />
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="flex items-center gap-2 text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={selected.weight >= 700}
-                        onChange={(e) => updateLayer(selected.id, { weight: e.target.checked ? 700 : 400 })}
-                        className="accent-accent"
-                      />
-                      {t('builder.layer.bold')}
-                    </label>
-                    <label className="flex items-center gap-2 text-slate-400">
-                      {t('builder.layer.color')}
-                      <input
-                        type="color"
-                        value={selected.color}
-                        onChange={(e) => updateLayer(selected.id, { color: e.target.value })}
-                        className="h-7 w-10 cursor-pointer rounded border border-line bg-transparent"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-slate-400">
-                      {t('builder.layer.strokeColor')}
-                      <input
-                        type="color"
-                        value={selected.strokeColor}
-                        onChange={(e) => updateLayer(selected.id, { strokeColor: e.target.value })}
-                        className="h-7 w-10 cursor-pointer rounded border border-line bg-transparent"
-                      />
-                    </label>
-                  </div>
-                  <RangeRow
-                    label={t('builder.layer.stroke')}
-                    display={`${selected.stroke}`}
-                    value={selected.stroke}
-                    min={0}
-                    max={12}
-                    onChange={(stroke) => updateLayer(selected.id, { stroke })}
-                  />
-                  <RangeRow
-                    label={t('builder.layer.glow')}
-                    display={`${selected.glow}`}
-                    value={selected.glow}
-                    min={0}
-                    max={40}
-                    onChange={(glow) => updateLayer(selected.id, { glow })}
-                  />
-                </>
-              )}
-              {selected.type === 'effect' && (
-                <>
-                  <div className="flex flex-wrap gap-1" data-effects>
-                    {EFFECTS.map((effect) => (
-                      <button
-                        key={effect}
-                        type="button"
-                        onClick={() => updateLayer(selected.id, { effect, color: EFFECT_COLORS[effect] })}
-                        className={chipClass(effect === selected.effect)}
-                      >
-                        {t(`builder.effects.${effect}`)}
-                      </button>
-                    ))}
-                  </div>
-                  <RangeRow
-                    label={t('builder.effect.density')}
-                    display={`${Math.round(selected.density * 100)}%`}
-                    value={Math.round(selected.density * 100)}
-                    min={0}
-                    max={100}
-                    onChange={(value) => updateLayer(selected.id, { density: value / 100 })}
-                  />
-                  {selected.effect !== 'stars' && (
-                    <>
-                      <RangeRow
-                        label={t('builder.effect.speed')}
-                        display={`${Math.round(selected.speed * 100)}%`}
-                        value={Math.round(selected.speed * 100)}
-                        min={0}
-                        max={100}
-                        onChange={(value) => updateLayer(selected.id, { speed: value / 100 })}
-                      />
-                      <RangeRow
-                        label={t('builder.effect.wind')}
-                        display={`${Math.round(selected.wind * 100)}`}
-                        value={Math.round(selected.wind * 100)}
-                        min={-100}
-                        max={100}
-                        onChange={(value) => updateLayer(selected.id, { wind: value / 100 })}
-                      />
-                    </>
-                  )}
-                  <RangeRow
-                    label={t('builder.effect.size')}
-                    display={`${Math.round(selected.size * 100)}%`}
-                    value={Math.round(selected.size * 100)}
-                    min={30}
-                    max={250}
-                    onChange={(value) => updateLayer(selected.id, { size: value / 100 })}
-                  />
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-slate-400">
-                      {t('builder.layer.color')}
-                      <input
-                        type="color"
-                        value={selected.color}
-                        onChange={(e) => updateLayer(selected.id, { color: e.target.value })}
-                        className="h-7 w-10 cursor-pointer rounded border border-line bg-transparent"
-                      />
-                    </label>
-                    <button type="button" onClick={() => updateLayer(selected.id, { seed: newSeed() })} className={secondaryButton}>
-                      {t('builder.effect.shuffle')}
-                    </button>
-                  </div>
-                </>
-              )}
-              {selected.type !== 'effect' && (
-                <>
-                  <RangeRow
-                    label={t('builder.layer.scale')}
-                    display={`${Math.round(selected.scale * 100)}%`}
-                    value={Math.round(selected.scale * 100)}
-                    min={2}
-                    max={400}
-                    onChange={(value) => updateLayer(selected.id, { scale: value / 100 })}
-                  />
-                  <RangeRow
-                    label={t('builder.layer.rotation')}
-                    display={`${Math.round(selected.rotation)}°`}
-                    value={selected.rotation}
-                    min={-180}
-                    max={180}
-                    onChange={(rotation) => updateLayer(selected.id, { rotation })}
-                  />
-                </>
-              )}
-              <RangeRow
-                label={t('builder.layer.opacity')}
-                display={`${Math.round(selected.opacity * 100)}%`}
-                value={Math.round(selected.opacity * 100)}
-                min={0}
-                max={100}
-                onChange={(value) => updateLayer(selected.id, { opacity: value / 100 })}
-              />
-              {selected.type === 'effect' ? (
-                <p className="text-xs text-slate-500">{t('builder.effect.hint')}</p>
-              ) : (
-                <>
-                  <div>
-                    <span className="mb-1 block text-slate-400">{t('builder.layer.animation')}</span>
-                    <div className="flex flex-wrap gap-1">
-                      {ANIMATIONS.map((animation) => (
-                        <button
-                          key={animation}
-                          type="button"
-                          onClick={() => updateLayer(selected.id, { animation })}
-                          className={chipClass(animation === selected.animation)}
-                        >
-                          {t(`builder.animations.${animation}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {selected.animation !== 'none' && (
-                    <RangeRow
-                      label={t('builder.layer.strength')}
-                      display={`${Math.round(selected.strength * 100)}%`}
-                      value={Math.round(selected.strength * 100)}
-                      min={0}
-                      max={100}
-                      onChange={(value) => updateLayer(selected.id, { strength: value / 100 })}
-                    />
-                  )}
-                  <p className="text-xs text-slate-500">
-                    X {Math.round(selected.x)}, Y {Math.round(selected.y)} · {t('builder.layer.hint')}
-                  </p>
-                </>
-              )}
-            </div>
-          </Section>
+          <LayerSettings
+            layer={selected}
+            cutoutModel={cutoutModel}
+            cutout={cutout}
+            cutoutError={cutoutError}
+            onCutoutModel={setCutoutModel}
+            onChange={(patch) => updateLayer(selected.id, patch)}
+            onCut={cutBackground}
+            onRestore={restoreOriginal}
+          />
         )}
 
         {animated && (
@@ -1076,7 +563,7 @@ export default function Builder() {
                       type="button"
                       onClick={() => {
                         setDurationMs(ms)
-                        resetResult()
+                        exporter.reset()
                       }}
                       className={chipClass(ms === durationMs)}
                     >
@@ -1094,7 +581,7 @@ export default function Builder() {
                       type="button"
                       onClick={() => {
                         setFps(value)
-                        resetResult()
+                        exporter.reset()
                       }}
                       className={chipClass(value === fps)}
                     >
@@ -1109,7 +596,7 @@ export default function Builder() {
                   checked={hex}
                   onChange={(e) => {
                     setHex(e.target.checked)
-                    resetResult()
+                    exporter.reset()
                   }}
                   className="mt-1 accent-accent"
                 />
@@ -1132,7 +619,7 @@ export default function Builder() {
                   type="button"
                   onClick={() => {
                     setFormat(f)
-                    resetResult()
+                    exporter.reset()
                   }}
                   className={toggleClass(f === format)}
                 >
@@ -1145,18 +632,18 @@ export default function Builder() {
 
         <button
           type="button"
-          onClick={onExport}
-          disabled={(!source && layers.length === 0) || !!busy}
+          onClick={exporter.run}
+          disabled={(!source && layers.length === 0) || !!exporter.busy}
           className="w-full rounded-lg bg-accent px-4 py-2.5 font-medium text-ink disabled:opacity-50"
         >
-          {busyLabel ?? t(animated ? 'cutter.export.gifButton' : 'cutter.export.button')}
+          {exporter.label ?? t(animated ? 'cutter.export.gifButton' : 'cutter.export.button')}
         </button>
-        {exportError && <p className="text-sm text-red-400">{t(`cutter.export.${exportError}`)}</p>}
+        {exporter.error && <p className="text-sm text-red-400">{t(`cutter.export.${exporter.error}`)}</p>}
 
-        {result && (
+        {exporter.result && (
           <div className="space-y-2">
             <ul className="space-y-1 text-sm">
-              {result.files.map((f) => (
+              {exporter.result.files.map((f) => (
                 <li key={f.name} className="flex justify-between">
                   <span className="text-slate-300">{f.name}</span>
                   <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
@@ -1165,7 +652,7 @@ export default function Builder() {
                 </li>
               ))}
             </ul>
-            {result.thinned && <p className="text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
+            {exporter.result.thinned && <p className="text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
             <button type="button" onClick={sendToPreview} className={`${secondaryButton} w-full`}>
               {t('cutter.result.toPreview')}
             </button>
@@ -1191,10 +678,10 @@ export default function Builder() {
         <BuilderStage
           scene={scene}
           background={background}
-          assets={assets}
+          assets={assets.bitmaps}
           selectedId={selectedId}
           playing={playing && animated}
-          redraw={fontsVersion + assetsVersion}
+          redraw={fontsVersion + assets.version}
           onSelect={setSelectedId}
           onLayerChange={updateLayer}
           onBackgroundChange={changeFrame}

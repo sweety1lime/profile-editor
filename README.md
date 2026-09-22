@@ -26,6 +26,9 @@ npm run dev
 
 Остальные команды: `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`.
 
+Тесты идут двумя наборами: `packages` считаются в node, код сайта — в jsdom с поддельной IndexedDB.
+Только один из них: `npx vitest run --project core` или `--project web`.
+
 ## Структура
 
 - `apps/web` — сайт (React, Vite, Tailwind)

@@ -522,5 +522,12 @@
     "note": "Not affiliated with Valve or Steam.",
     "source": "Source on GitHub"
   },
-  "notFound": "Page not found."
+  "notFound": "Page not found.",
+  "crash": {
+    "title": "Something broke",
+    "text": "This page failed to render. Your builder projects and the cutter session are saved in the browser, so they come back after a reload.",
+    "retry": "Try again",
+    "reload": "Reload the page",
+    "details": "Error details"
+  }
 }

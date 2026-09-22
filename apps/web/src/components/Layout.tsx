@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { LANGS, detectLang, isLang } from '../i18n'
+import ErrorBoundary from './ErrorBoundary'
 
 const REPO_URL = 'https://github.com/sweety1lime/profile-editor'
 
@@ -66,7 +67,10 @@ export default function Layout() {
       </header>
 
       <main className="flex-1">
-        <Outlet />
+        {/* ключ по адресу: уходя со сломавшейся страницы, показываем следующую как обычно */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       <footer className="border-t border-line">

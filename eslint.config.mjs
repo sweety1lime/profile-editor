@@ -21,4 +21,9 @@ export default defineConfig(
     files: ['api/**/*.ts', 'scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs', '**/*.config.{ts,mjs,js}'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // сценарий сам живёт в node, но передаёт куски кода в браузер, так что знает и те глобальные
+    files: ['scripts/e2e/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 )

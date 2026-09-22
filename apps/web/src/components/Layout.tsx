@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { LANGS, detectLang, isLang } from '../i18n'
+import { usePageMeta } from '../lib/meta'
 import ErrorBoundary from './ErrorBoundary'
 
 const REPO_URL = 'https://github.com/sweety1lime/profile-editor'
@@ -16,6 +17,8 @@ export default function Layout() {
     if (i18n.language !== lang) i18n.changeLanguage(lang)
     document.documentElement.lang = lang
   }, [lang, i18n])
+
+  usePageMeta(isLang(lang) ? lang : detectLang(), location.pathname)
 
   if (!isLang(lang)) return <Navigate to={`/${detectLang()}`} replace />
 

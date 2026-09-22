@@ -529,5 +529,43 @@
     "retry": "Try again",
     "reload": "Reload the page",
     "details": "Error details"
+  },
+  "meta": {
+    "home": {
+      "title": "Profile Editor — Steam profile artwork",
+      "description": "Slice images, GIFs and video for Steam showcases, build artwork, browse the points shop catalog and preview your profile. Runs in your browser, no account."
+    },
+    "cutter": {
+      "title": "Showcase slicer",
+      "description": "Cuts an image, GIF or video into Steam showcase parts: artwork, featured, screenshots, workshop. GIFs are squeezed under the 5 MB limit."
+    },
+    "builder": {
+      "title": "Showcase builder",
+      "description": "Build a showcase from a background, images and text: animation, effects, background removal and ready-to-upload parts."
+    },
+    "preview": {
+      "title": "Steam profile preview",
+      "description": "Shows how your showcases, background, avatar frame and avatar will look on the profile page at different screen widths."
+    },
+    "gallery": {
+      "title": "Backgrounds, frames and avatars",
+      "description": "Items from the Steam points shop: backgrounds, mini profile backgrounds, frames, avatars and profile themes. Search, filters and color matching."
+    },
+    "infobox": {
+      "title": "Info box editor",
+      "description": "BBCode, braille ASCII art, Unicode styles and centering for the Steam profile info box."
+    },
+    "guide": {
+      "title": "Guide and upload helper",
+      "description": "How to upload a long artwork to a Steam showcase: console codes, the GIF hex patch and an extension that fills everything in for you."
+    },
+    "check": {
+      "title": "Profile check",
+      "description": "Shows what Steam returns for a profile: background, frame, avatar, theme and level."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "description": "There is no such page."
+    }
   }
 }

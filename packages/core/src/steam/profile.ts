@@ -1,4 +1,4 @@
-import { parseProfileRef, type ProfileRef } from './input'
+import { parseProfileRef, type ProfileRef } from './input.ts'
 
 const API = 'https://api.steampowered.com'
 const COMMUNITY = 'https://steamcommunity.com'

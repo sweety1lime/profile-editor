@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { handleProfileRequest } from '../../packages/core/src/steam/profile'
+import { handleProfileRequest } from '../../packages/core/src/steam/profile.ts'
 
 // На Vercel /api отвечает серверная функция, а локально отвечаем сами, чтобы не ставить vercel cli
 function steamApi(): Plugin {

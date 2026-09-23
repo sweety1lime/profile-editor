@@ -92,6 +92,34 @@ async function startServer() {
 
 // --- разбор собранного архива
 
+// Кадры считаем по структуре файла, а не поиском байтов: последовательность 21 F9 04
+// попадается и внутри сжатых данных, и проверка начинает врать через раз
+function gifFrames(data) {
+  let i = 6 + 7
+  if (data[10] & 0x80) i += 3 * (1 << ((data[10] & 7) + 1))
+  const skipBlocks = () => {
+    while (data[i]) i += data[i] + 1
+    i++
+  }
+  let frames = 0
+  while (i < data.length) {
+    const block = data[i++]
+    if (block === 0x3b) break
+    if (block === 0x21) {
+      i++
+      skipBlocks()
+    } else if (block === 0x2c) {
+      frames++
+      const packed = data[i + 8]
+      i += 9
+      if (packed & 0x80) i += 3 * (1 << ((packed & 7) + 1))
+      i++
+      skipBlocks()
+    } else break
+  }
+  return frames
+}
+
 function inspectArchive(path) {
   const files = unzipSync(new Uint8Array(readFileSync(path)))
   const parts = []
@@ -102,10 +130,7 @@ function inspectArchive(path) {
     if (name.endsWith('.gif')) {
       part.width = data[6] | (data[7] << 8)
       part.height = data[8] | (data[9] << 8)
-      part.frames = 0
-      for (let i = 0; i < data.length - 2; i++) {
-        if (data[i] === 0x21 && data[i + 1] === 0xf9 && data[i + 2] === 0x04) part.frames++
-      }
+      part.frames = gifFrames(data)
     }
     parts.push(part)
   }

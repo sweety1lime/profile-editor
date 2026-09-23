@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_FRAMES, buildTimeline, delayForFps, nearestFps, thinFrames } from './timeline'
+import {
+  FRAME_MEMORY_BUDGET,
+  MAX_FRAMES,
+  buildTimeline,
+  delayForFps,
+  framesInBudget,
+  nearestFps,
+  stepForBudget,
+  thinFrames,
+} from './timeline'
 
 describe('buildTimeline', () => {
   it('spreads frames evenly', () => {
@@ -43,5 +52,30 @@ describe('nearestFps', () => {
     expect(nearestFps(30)).toBe(25)
     expect(nearestFps(11)).toBe(10)
     expect(nearestFps(14)).toBe(15)
+  })
+})
+
+describe('memory budget', () => {
+  it('counts how many frames fit', () => {
+    expect(framesInBudget(1000, 10000)).toBe(10)
+    expect(framesInBudget(3000, 10000)).toBe(3)
+  })
+
+  it('never drops below a single frame', () => {
+    expect(framesInBudget(999999, 10)).toBe(1)
+    expect(framesInBudget(0, 10)).toBe(10)
+  })
+
+  it('leaves an ordinary showcase alone', () => {
+    // иллюстрации 506 + 100 на высоте 380 — меньше мегабайта на кадр
+    const perFrame = (506 * 380 + 100 * 380) * 4
+    expect(stepForBudget(MAX_FRAMES, perFrame)).toBe(1)
+  })
+
+  it('thins a tall showcase that would not fit in memory', () => {
+    const perFrame = (506 * 4000 + 100 * 4000) * 4
+    const step = stepForBudget(MAX_FRAMES, perFrame)
+    expect(step).toBeGreaterThan(1)
+    expect(Math.ceil(MAX_FRAMES / step) * perFrame).toBeLessThanOrEqual(FRAME_MEMORY_BUDGET)
   })
 })

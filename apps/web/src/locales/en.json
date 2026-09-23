@@ -117,7 +117,7 @@
       "edit": "Frame",
       "result": "Result",
       "info": "{{frames}} frames, about {{fps}} per second.",
-      "thinned": "Some frames were dropped to fit the limit.",
+      "thinned": "Some frames were dropped to make it fit.",
       "sync": "If the parts play out of sync after uploading, refresh your profile page. Once everything is cached they play together.",
       "toPreview": "Show on profile"
     },

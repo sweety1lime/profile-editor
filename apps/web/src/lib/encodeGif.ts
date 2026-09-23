@@ -1,4 +1,12 @@
-import { patchGifTrailer, sliceRects, thinFrames, type Frame, type ShowcaseKind, type Timeline } from '@profile-editor/core'
+import {
+  patchGifTrailer,
+  sliceRects,
+  stepForBudget,
+  thinFrames,
+  type Frame,
+  type ShowcaseKind,
+  type Timeline,
+} from '@profile-editor/core'
 import type { AnimatedSource } from './animated'
 
 export type Progress = { stage: 'frames'; done: number; total: number } | { stage: 'encode'; attempt: number }
@@ -56,12 +64,25 @@ export async function encodeAnimated(
   onProgress: (progress: Progress) => void,
 ): Promise<GifResult | null> {
   const rects = sliceRects(kind, frame)
+
+  // Высокая витрина на многих кадрах не помещается в память целиком, поэтому лишние кадры
+  // убираем сразу: нарисовать и уронить вкладку хуже, чем собрать анимацию пореже
+  const bytesPerFrame = rects.reduce((sum, r) => sum + r.outWidth * r.outHeight * 4, 0)
+  const budgetStep = stepForBudget(timeline.timestamps.length, bytesPerFrame)
+  const grid =
+    budgetStep === 1
+      ? timeline
+      : (() => {
+          const thin = thinFrames(timeline.delays, budgetStep)
+          return { timestamps: thin.indices.map((i) => timeline.timestamps[i]!), delays: thin.delays }
+        })()
+
   const contexts = rects.map((r) => new OffscreenCanvas(r.outWidth, r.outHeight).getContext('2d', { willReadFrequently: true })!)
   const partFrames: Uint8ClampedArray[][] = rects.map(() => [])
-  const total = timeline.timestamps.length
+  const total = grid.timestamps.length
 
   let done = 0
-  for await (const image of source.frames(timeline.timestamps)) {
+  for await (const image of source.frames(grid.timestamps)) {
     rects.forEach((r, p) => {
       const ctx = contexts[p]!
       ctx.fillStyle = '#000'
@@ -77,7 +98,7 @@ export async function encodeAnimated(
   try {
     for (let step = 1; step <= MAX_THIN_STEP; step++) {
       onProgress({ stage: 'encode', attempt: step })
-      const thin = thinFrames(timeline.delays, step)
+      const thin = thinFrames(grid.delays, step)
       const replies = await Promise.all(encoders.map((e) => e.encode(thin.indices, thin.delays, options.limit)))
       if (replies.every((r) => r.ok)) {
         return {
@@ -89,7 +110,7 @@ export async function encodeAnimated(
               colors: ok.colors,
             }
           }),
-          step,
+          step: step * budgetStep,
           frameCount: thin.indices.length,
           delays: thin.delays,
         }

@@ -26,6 +26,20 @@ export function buildTimeline(start: number, length: number, fps: number): Timel
   }
 }
 
+// Пока идёт сборка, все кадры всех частей витрины лежат в памяти распакованными:
+// ширина × высота × 4 байта на каждый. Высокая витрина на полутора сотнях кадров выходит за
+// гигабайт, и вкладка на телефоне умирает молча, без единого сообщения. Поэтому сетку времени
+// прореживаем заранее, ещё до того как начали рисовать
+export const FRAME_MEMORY_BUDGET = 256 * 1024 * 1024
+
+export const framesInBudget = (bytesPerFrame: number, budget = FRAME_MEMORY_BUDGET) =>
+  Math.max(1, Math.floor(budget / Math.max(1, bytesPerFrame)))
+
+// Во сколько раз проредить сетку, чтобы уложиться в бюджет. 1 — прореживать не надо
+export function stepForBudget(frames: number, bytesPerFrame: number, budget = FRAME_MEMORY_BUDGET): number {
+  return Math.max(1, Math.ceil(frames / framesInBudget(bytesPerFrame, budget)))
+}
+
 // Оставляет каждый step-й кадр, а его задержку растягивает на выброшенные,
 // чтобы длина анимации не менялась
 export function thinFrames(delays: number[], step: number): { indices: number[]; delays: number[] } {

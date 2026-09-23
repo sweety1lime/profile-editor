@@ -33,6 +33,7 @@ import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
 import { useAssets } from '../lib/useAssets'
 import { useHistory } from '../lib/useHistory'
+import { useReducedMotion } from '../lib/useReducedMotion'
 import { useProjectStorage, type Session } from '../lib/useProjectStorage'
 import { useSceneExport } from '../lib/useSceneExport'
 
@@ -72,7 +73,8 @@ export default function Builder() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [durationMs, setDurationMs] = useState(2000)
   const [fps, setFps] = useState(15)
-  const [playing, setPlaying] = useState(true)
+  const reducedMotion = useReducedMotion()
+  const [playing, setPlaying] = useState(!reducedMotion)
   const [format, setFormat] = useState<OutFormat>('png')
   const [hex, setHex] = useState(false)
   const [link, setLink] = useState('')
@@ -593,6 +595,7 @@ export default function Builder() {
                 <button
                   type="button"
                   title={t(layer.visible ? 'builder.layers.hide' : 'builder.layers.show')}
+                  aria-label={t(layer.visible ? 'builder.layers.hide' : 'builder.layers.show')}
                   onClick={() => updateLayer(layer.id, { visible: !layer.visible })}
                   className={`px-1 ${layer.visible ? 'text-slate-400' : 'text-slate-600'} hover:text-white`}
                 >
@@ -601,6 +604,7 @@ export default function Builder() {
                 <button
                   type="button"
                   title={t('builder.layers.up')}
+                  aria-label={t('builder.layers.up')}
                   onClick={() => setLayers((list) => moveLayer(list, layer.id, 1))}
                   className="px-1 text-slate-400 hover:text-white"
                 >
@@ -609,6 +613,7 @@ export default function Builder() {
                 <button
                   type="button"
                   title={t('builder.layers.down')}
+                  aria-label={t('builder.layers.down')}
                   onClick={() => setLayers((list) => moveLayer(list, layer.id, -1))}
                   className="px-1 text-slate-400 hover:text-white"
                 >
@@ -617,6 +622,7 @@ export default function Builder() {
                 <button
                   type="button"
                   title={t('builder.layers.remove')}
+                  aria-label={t('builder.layers.remove')}
                   onClick={() => removeLayer(layer.id)}
                   className="px-1 text-slate-400 hover:text-red-400"
                 >
@@ -762,6 +768,7 @@ export default function Builder() {
             onClick={undo}
             disabled={!history.canUndo}
             title={`${t('builder.undo')} (Ctrl+Z)`}
+            aria-label={t('builder.undo')}
             className={stageButton}
           >
             ↶
@@ -771,6 +778,7 @@ export default function Builder() {
             onClick={redo}
             disabled={!history.canRedo}
             title={`${t('builder.redo')} (Ctrl+Shift+Z)`}
+            aria-label={t('builder.redo')}
             className={stageButton}
           >
             ↷

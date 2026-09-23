@@ -53,6 +53,7 @@ function ProjectRow(props: { project: ProjectRecord; current: boolean; onOpen: (
       <button
         type="button"
         title={t('builder.projects.delete')}
+        aria-label={t('builder.projects.delete')}
         onClick={props.onDelete}
         className="px-1 text-slate-400 hover:text-red-400"
       >

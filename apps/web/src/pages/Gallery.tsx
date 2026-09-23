@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { decodePalette, encodePalette, paletteDistance, toLab, type PaletteColor } from '@profile-editor/core'
@@ -17,6 +17,7 @@ import {
 } from '../lib/catalog'
 import { colorToHex, hexToPalette, paletteFromFile } from '../lib/palette'
 import { showcaseStore } from '../lib/showcaseStore'
+import { useReducedMotion } from '../lib/useReducedMotion'
 
 const TABS: CatalogKind[] = ['backgrounds', 'mini', 'frames', 'avatars', 'profiles']
 const SORTS = ['new', 'cheap', 'expensive'] as const
@@ -33,8 +34,20 @@ const actionButton = 'rounded-lg border border-line bg-panel px-3 py-2 text-sm t
 
 function ItemMedia({ kind, item }: { kind: CatalogKind; item: CatalogItem }) {
   const motion = motionUrl(kind, item)
+  const still = useReducedMotion()
   if ((kind === 'backgrounds' || kind === 'mini') && motion) {
-    return <video src={motion} poster={assetUrl(item, item.i)} autoPlay loop muted playsInline className="w-full rounded-lg" />
+    return (
+      <video
+        src={motion}
+        poster={assetUrl(item, item.i)}
+        autoPlay={!still}
+        controls={still}
+        loop
+        muted
+        playsInline
+        className="w-full rounded-lg"
+      />
+    )
   }
   if (kind === 'frames') {
     return (
@@ -62,24 +75,36 @@ function ItemDialog(props: {
 }) {
   const { t, i18n } = useTranslation()
   const { kind, item, onClose } = props
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
 
+  // Нативное окно само уводит фокус внутрь, не выпускает его наружу по Tab, закрывается
+  // по Escape и возвращает фокус туда, откуда его открыли
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    const el = dialog.current
+    if (el && !el.open) el.showModal()
+    return () => el?.close()
+  }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" onClick={onClose}>
-      <div
-        className="max-h-full w-full max-w-4xl overflow-auto rounded-xl border border-line bg-ink p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <dialog
+      ref={dialog}
+      aria-labelledby={titleId}
+      onClose={onClose}
+      // клик мимо окна приходит на сам dialog: всё, что внутри, целится в свои элементы
+      onClick={(e) => {
+        if (e.target === dialog.current) onClose()
+      }}
+      className="m-auto max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl border border-line bg-ink p-5 text-slate-200 backdrop:bg-black/75"
+    >
+      <div>
         <ItemMedia kind={kind} item={item} />
         {props.palette.length > 0 && <PaletteStrip palette={props.palette} className="mt-3 h-3 w-full" />}
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-medium text-white">{item.n}</h2>
+            <h2 id={titleId} className="text-xl font-medium text-white">
+              {item.n}
+            </h2>
             <p className="text-sm text-slate-400">{props.game}</p>
             <p className="mt-1 text-sm text-slate-500">
               {t('gallery.points', { points: item.p.toLocaleString(i18n.language) })}
@@ -110,7 +135,7 @@ function ItemDialog(props: {
           )}
         </div>
       </div>
-    </div>
+    </dialog>
   )
 }
 

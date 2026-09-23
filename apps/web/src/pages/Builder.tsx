@@ -29,6 +29,7 @@ import { bitmapToBlob } from '../lib/projectsDb'
 import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
 import { useAssets } from '../lib/useAssets'
+import { useHistory } from '../lib/useHistory'
 import { useProjectStorage, type Session } from '../lib/useProjectStorage'
 import { useSceneExport } from '../lib/useSceneExport'
 
@@ -38,6 +39,21 @@ const DEFAULT_HEIGHT = 700
 const THUMB_WIDTH = 120
 
 const newId = () => crypto.randomUUID()
+
+const stageButton =
+  'rounded-lg bg-ink/80 px-3 py-1 text-sm text-slate-300 hover:text-white disabled:pointer-events-none disabled:opacity-40'
+
+// Состояние холста, которое ходит по истории правок
+interface Doc {
+  kind: ShowcaseKind
+  frame: Frame | null
+  height: number
+  layers: Layer[]
+  durationMs: number
+  fps: number
+  format: OutFormat
+  hex: boolean
+}
 
 export default function Builder() {
   const { t } = useTranslation()
@@ -92,6 +108,14 @@ export default function Builder() {
     animated,
   })
 
+  // Что отменяется и возвращается. Фон сюда не входит: его Source живёт ровно один раз,
+  // старый освобождается при замене, и вернуть его было бы нечем
+  const doc = useMemo<Doc>(
+    () => ({ kind, frame, height, layers, durationMs, fps, format, hex }),
+    [kind, frame, height, layers, durationMs, fps, format, hex],
+  )
+  const history = useHistory(doc)
+
   // всё, что попадает в сохранённый проект: поменялось — пора сохраняться заново
   const revision = useMemo(
     () => [source, kind, frame, height, layers, durationMs, fps, format, hex, assets.version],
@@ -117,6 +141,62 @@ export default function Builder() {
   useEffect(() => {
     isEmpty.current = !source && layers.length === 0
   }, [source, layers])
+
+  function applyDoc(next: Doc) {
+    setKind(next.kind)
+    setFrame(next.frame)
+    setHeight(next.height)
+    setLayers(next.layers)
+    setDurationMs(next.durationMs)
+    setFps(next.fps)
+    setFormat(next.format)
+    setHex(next.hex)
+    // слой мог исчезнуть вместе с отменённой правкой
+    setSelectedId((id) => (next.layers.some((l) => l.id === id) ? id : null))
+    exporter.reset()
+  }
+
+  function undo() {
+    const previous = history.undo()
+    if (previous) applyDoc(previous)
+  }
+
+  function redo() {
+    const next = history.redo()
+    if (next) applyDoc(next)
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      const target = e.target as HTMLElement | null
+      // пока человек печатает, отмена принадлежит полю ввода
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  // картинки, на которые не ссылается ни холст, ни история, больше не нужны
+  useEffect(() => {
+    const alive = new Set<string>()
+    for (const state of [doc, ...history.states()]) {
+      for (const layer of state.layers) {
+        if (layer.type !== 'image') continue
+        alive.add(layer.assetId)
+        if (layer.originalAssetId) alive.add(layer.originalAssetId)
+      }
+    }
+    assets.keepOnly(alive)
+  }, [doc, history, assets])
 
   async function loadBackground(task: () => Promise<Source>) {
     setLoading(true)
@@ -172,8 +252,6 @@ export default function Builder() {
   }
 
   function removeLayer(id: string) {
-    const layer = layers.find((l) => l.id === id)
-    if (layer?.type === 'image') assets.forget(layer.assetId, layer.originalAssetId)
     setLayers((list) => list.filter((l) => l.id !== id))
     if (selectedId === id) setSelectedId(null)
     exporter.reset()
@@ -208,8 +286,6 @@ export default function Builder() {
       )
       // для сохранения проекта вырезку сразу держим и файлом
       const cutBlob = await bitmapToBlob(cut)
-      // прошлую вырезку выбрасываем, оригинал оставляем
-      if (layer.originalAssetId) assets.forget(layer.assetId)
       const id = newId()
       assets.add(id, cut, cutBlob)
       updateLayer(layer.id, {
@@ -230,7 +306,6 @@ export default function Builder() {
   function restoreOriginal(layer: ImageLayer) {
     if (!layer.originalAssetId) return
     const original = assets.bitmaps.get(layer.originalAssetId)
-    assets.forget(layer.assetId)
     assets.bump()
     updateLayer(layer.id, {
       assetId: layer.originalAssetId,
@@ -298,6 +373,7 @@ export default function Builder() {
   function resetDocument() {
     assets.clear()
     assets.bump()
+    history.reset()
     resetView()
     setSource(null)
     setFrame(null)
@@ -330,6 +406,7 @@ export default function Builder() {
     }
 
     assets.load(bitmaps, data.assets)
+    history.reset()
     const loaded: Session = { id: data.id, autoName: data.name }
     storage.adopt(loaded, { skip: true })
     storage.setName(data.name)
@@ -489,7 +566,7 @@ export default function Builder() {
             }}
           />
           {layers.length === 0 && <p className="mt-2 text-xs text-slate-500">{t('builder.layers.empty')}</p>}
-          <ul className="mt-3 space-y-1">
+          <ul className="mt-3 space-y-1" data-layers>
             {[...layers].reverse().map((layer) => (
               <li
                 key={layer.id}
@@ -666,6 +743,26 @@ export default function Builder() {
       </aside>
 
       <section className="relative h-[calc(100vh-9rem)] min-h-[480px] overflow-hidden rounded-xl border border-line bg-panel/40 lg:sticky lg:top-4 lg:self-start">
+        <div className="absolute left-3 top-3 z-10 flex gap-1">
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!history.canUndo}
+            title={`${t('builder.undo')} (Ctrl+Z)`}
+            className={stageButton}
+          >
+            ↶
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!history.canRedo}
+            title={`${t('builder.redo')} (Ctrl+Shift+Z)`}
+            className={stageButton}
+          >
+            ↷
+          </button>
+        </div>
         {animated && (
           <button
             type="button"

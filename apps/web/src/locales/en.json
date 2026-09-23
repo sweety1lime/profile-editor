@@ -196,6 +196,8 @@
   "builder": {
     "title": "Builder",
     "lead": "Put together your own picture for a showcase: background, character, captions and light animation. Comes out as ready Steam parts.",
+    "undo": "Undo",
+    "redo": "Redo",
     "empty": "Load a background on the left or add a picture and text right away.",
     "defaultText": "Your name",
     "background": {

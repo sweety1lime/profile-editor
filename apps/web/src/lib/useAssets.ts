@@ -8,8 +8,9 @@ export interface Assets {
   blobs: Map<string, Blob>
   version: number
   add(id: string, bitmap: ImageBitmap, blob: Blob): void
-  // забыть картинки; отдельной перерисовки не просим, её вызовет правка слоёв
-  forget(...ids: (string | undefined)[]): void
+  // Выбросить всё, на что больше никто не ссылается. Удалённый слой сразу чистить нельзя:
+  // его ещё может вернуть отмена, поэтому решение принимается по холсту вместе с историей
+  keepOnly(alive: Set<string>): void
   // картинки открытого проекта вместо текущих
   load(bitmaps: Map<string, ImageBitmap>, blobs: Record<string, Blob>): void
   clear(): void
@@ -43,13 +44,13 @@ export function useAssets(): Assets {
         blobs.set(id, blob)
         bump()
       },
-      forget(...ids) {
-        for (const id of ids) {
-          if (!id) continue
+      keepOnly(alive) {
+        for (const id of [...bitmaps.keys()]) {
+          if (alive.has(id)) continue
           bitmaps.get(id)?.close()
           bitmaps.delete(id)
-          blobs.delete(id)
         }
+        for (const id of [...blobs.keys()]) if (!alive.has(id)) blobs.delete(id)
       },
       load(nextBitmaps, nextBlobs) {
         clear()

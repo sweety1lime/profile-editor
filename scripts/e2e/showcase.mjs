@@ -210,6 +210,24 @@ try {
   await page.waitForTimeout(400)
   await shot('01-фон')
 
+  // Отмена и возврат: меняем высоту, откатываем и возвращаем. Высота есть у любой витрины,
+  // поэтому проверка не зависит от того, что именно собираем
+  say('проверяю отмену и возврат')
+  const heightInput = page.locator('label:has(span:text-is("Высота")) input[type=range]')
+  const bumped = options.height + 60
+  await setRange('Высота', bumped)
+  await page.waitForTimeout(600)
+  // снимаем фокус с поля: пока человек печатает, отмена принадлежит полю ввода
+  await page.locator('section').last().click({ position: { x: 6, y: 6 } })
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(500)
+  check((await heightInput.inputValue()) === String(options.height), 'отмена вернула прежнюю высоту')
+  await page.keyboard.press('Control+Shift+z')
+  await page.waitForTimeout(500)
+  check((await heightInput.inputValue()) === String(bumped), 'возврат вернул новую')
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(500)
+
   if (options.effect) {
     say(`добавляю эффект: ${EFFECT_LABELS[options.effect]}`)
     await page.getByRole('button', { name: '+ Эффект' }).click()

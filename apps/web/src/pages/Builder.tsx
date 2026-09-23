@@ -6,10 +6,13 @@ import {
   PROFILE_OFFSET,
   UPLOAD_LIMIT_BYTES,
   clampHeight,
+  crossesGap,
   fitFrame,
   hasAnimation,
+  horizontalSpan,
   isProfileBackground,
   moveLayer,
+  poseAt,
   type Frame,
   type ImageLayer,
   type Layer,
@@ -20,7 +23,7 @@ import BuilderStage from '../components/BuilderStage'
 import LayerSettings, { type CutoutProgress } from '../components/LayerSettings'
 import ProjectsPanel from '../components/ProjectsPanel'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
-import { drawScene, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
+import { drawScene, layerSize, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
 import { removeBackground, type CutoutModel } from '../lib/cutout'
 import { toMegabytes, type OutFormat } from '../lib/exportSlices'
 import { useFontsReady } from '../lib/fonts'
@@ -115,6 +118,15 @@ export default function Builder() {
     [kind, frame, height, layers, durationMs, fps, format, hex],
   )
   const history = useHistory(doc)
+
+  // Слой, легший на стык частей витрины, в профиле разрежет пополам. Заметить это на холсте
+  // трудно: зазор узкий, а картинка через него читается как целая
+  const crossesSeam = useMemo(() => {
+    if (!selected || selected.type === 'effect' || !selected.visible) return false
+    const own = layerSize(selected)
+    const span = horizontalSpan(poseAt(selected, 0), own.width, own.height)
+    return crossesGap(kind, span.left, span.right)
+  }, [selected, kind])
 
   // всё, что попадает в сохранённый проект: поменялось — пора сохраняться заново
   const revision = useMemo(
@@ -621,6 +633,7 @@ export default function Builder() {
             cutoutModel={cutoutModel}
             cutout={cutout}
             cutoutError={cutoutError}
+            crossesSeam={crossesSeam}
             onCutoutModel={setCutoutModel}
             onChange={(patch) => updateLayer(selected.id, patch)}
             onCut={cutBackground}

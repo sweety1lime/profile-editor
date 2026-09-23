@@ -106,6 +106,13 @@ export const hasAnimation = (layers: Layer[]) =>
     (layer) => layer.visible && (layer.type === 'effect' || (layer.animation !== 'none' && layer.strength > 0)),
   )
 
+// Левый и правый край слоя на витрине с учётом поворота и масштаба
+export function horizontalSpan(pose: Pose, width: number, height: number): { left: number; right: number } {
+  const angle = (pose.rotation * Math.PI) / 180
+  const half = (Math.abs(Math.cos(angle)) * width + Math.abs(Math.sin(angle)) * height) * (pose.scale / 2)
+  return { left: pose.x - half, right: pose.x + half }
+}
+
 // Попадает ли точка в слой с учётом поворота и масштаба. width и height — собственный размер слоя
 export function containsPoint(pose: Pose, width: number, height: number, px: number, py: number): boolean {
   const angle = (-pose.rotation * Math.PI) / 180

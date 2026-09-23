@@ -44,6 +44,23 @@ export const SHOWCASES: Record<ShowcaseKind, Showcase> = {
   },
 }
 
+// Между частями витрины в профиле остаётся зазор: всё, что на него попало, окажется разрезанным.
+// У избранной иллюстрации часть одна, поэтому зазоров нет вовсе
+export function sliceGaps(kind: ShowcaseKind): { start: number; end: number }[] {
+  const { slices } = SHOWCASES[kind]
+  const gaps: { start: number; end: number }[] = []
+  for (let i = 1; i < slices.length; i++) {
+    const start = slices[i - 1]!.x + slices[i - 1]!.width
+    const end = slices[i]!.x
+    if (end > start) gaps.push({ start, end })
+  }
+  return gaps
+}
+
+// Попадает ли что-то шириной от left до right на стык между частями
+export const crossesGap = (kind: ShowcaseKind, left: number, right: number) =>
+  sliceGaps(kind).some((gap) => left < gap.end && right > gap.start)
+
 // Фоны профиля шириной 1920 px. В режиме «Original Size» фон стоит по центру страницы без масштабирования
 export const PROFILE_BACKGROUND_WIDTH = 1920
 

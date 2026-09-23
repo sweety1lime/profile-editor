@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SHOWCASES, UPLOAD_SNIPPETS } from './geometry'
+import { SHOWCASES, UPLOAD_SNIPPETS, crossesGap, sliceGaps } from './geometry'
 
 describe('SHOWCASES', () => {
   it('artwork: 506 + 9 + 100', () => {
@@ -32,5 +32,26 @@ describe('SHOWCASES', () => {
     for (const kind of Object.keys(SHOWCASES)) {
       expect(UPLOAD_SNIPPETS[kind as keyof typeof UPLOAD_SNIPPETS]).toBeTruthy()
     }
+  })
+})
+
+describe('sliceGaps', () => {
+  it('у избранной иллюстрации стыков нет', () => {
+    expect(sliceGaps('featured')).toEqual([])
+  })
+
+  it('у иллюстраций один стык между широкой и узкой частью', () => {
+    expect(sliceGaps('artwork')).toEqual([{ start: 506, end: 515 }])
+  })
+
+  it('у мастерской стык между каждой парой частей', () => {
+    expect(sliceGaps('workshop')).toHaveLength(4)
+  })
+
+  it('видит, что слой лёг на стык', () => {
+    expect(crossesGap('artwork', 400, 520)).toBe(true)
+    expect(crossesGap('artwork', 400, 500)).toBe(false)
+    expect(crossesGap('artwork', 520, 600)).toBe(false)
+    expect(crossesGap('featured', 0, 630)).toBe(false)
   })
 })

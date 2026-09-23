@@ -231,7 +231,8 @@
       "opacity": "Opacity",
       "animation": "Animation",
       "strength": "Strength",
-      "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it."
+      "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it.",
+      "seam": "This layer sits on the seam between showcase parts — Steam will cut it in two."
     },
     "projects": {
       "title": "Project",

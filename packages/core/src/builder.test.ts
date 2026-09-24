@@ -5,10 +5,12 @@ import {
   containsPoint,
   hasAnimation,
   hasDecoration,
+  keyframeAt,
   imageStyle,
   layerAt,
   layerBounds,
   moveLayer,
+  neutralKey,
   outlineOffsets,
   poseAt,
   stylePadding,
@@ -194,3 +196,79 @@ describe('outlineOffsets', () => {
     expect(points.some((p) => Math.abs(distance(p) - 4) < 1e-9)).toBe(true)
   })
 })
+
+describe('keyframeAt', () => {
+  const keys = [neutralKey(0), { ...neutralKey(0.5), x: 100, rotation: 20 }]
+
+  it('stands on the keys at their moments', () => {
+    expect(keyframeAt(keys, 0)).toMatchObject({ x: 0, rotation: 0 })
+    expect(keyframeAt(keys, 0.5)).toMatchObject({ x: 100, rotation: 20 })
+  })
+
+  it('eases between the keys', () => {
+    const quarter = keyframeAt(keys, 0.25).x
+    expect(quarter).toBeCloseTo(50)
+    // разгон: в начале пути слой идёт медленнее, чем по прямой
+    expect(keyframeAt(keys, 0.05).x).toBeLessThan(10)
+  })
+
+  it('closes the loop from the last key back to the first', () => {
+    // после 0.5 слой возвращается к ключу в 0, и конец цикла совпадает с началом
+    expect(keyframeAt(keys, 0.75).x).toBeCloseTo(50)
+    expect(keyframeAt(keys, 0.999).x).toBeCloseTo(0, 1)
+  })
+
+  it('wraps around even when no key sits at the start', () => {
+    const late = [{ ...neutralKey(0.25), y: -10 }, { ...neutralKey(0.75), y: 10 }]
+    expect(keyframeAt(late, 0).y).toBeCloseTo(0)
+    expect(keyframeAt(late, 0).y).toBeCloseTo(keyframeAt(late, 1).y)
+  })
+
+  it('keeps a single key in place and nothing without keys', () => {
+    expect(keyframeAt([{ ...neutralKey(0.3), y: 7 }], 0.9).y).toBe(7)
+    expect(keyframeAt([], 0.4)).toEqual(neutralKey(0.4))
+  })
+})
+
+describe('animation by keys', () => {
+  const base = {
+    id: 'l',
+    name: 'слой',
+    type: 'text' as const,
+    text: 'hi',
+    font: 'Rubik',
+    size: 20,
+    weight: 400,
+    color: '#fff',
+    stroke: 0,
+    strokeColor: '#000',
+    glow: 0,
+    x: 10,
+    y: 20,
+    scale: 2,
+    rotation: 5,
+    opacity: 0.8,
+    visible: true,
+    animation: 'keys' as const,
+    strength: 0.6,
+  }
+
+  it('shifts the layer by the key at that moment', () => {
+    const layer = { ...base, keyframes: [neutralKey(0), { t: 0.5, x: 30, y: -40, scale: 1.5, rotation: 10, opacity: 0.5 }] }
+    expect(poseAt(layer, 0.5)).toEqual({ x: 40, y: -20, scale: 3, rotation: 15, opacity: 0.4 })
+    expect(poseAt(layer, 0)).toEqual({ x: 10, y: 20, scale: 2, rotation: 5, opacity: 0.8 })
+  })
+
+  it('counts as moving only with two keys or more', () => {
+    expect(hasAnimation([{ ...base, keyframes: [neutralKey(0)] }])).toBe(false)
+    expect(hasAnimation([{ ...base, keyframes: [neutralKey(0), neutralKey(0.5)] }])).toBe(true)
+  })
+
+  it('finds the layer where it is at that moment', () => {
+    const layer = { ...base, scale: 1, keyframes: [neutralKey(0), { ...neutralKey(0.5), x: 200 }] }
+    const size = () => ({ width: 20, height: 20 })
+    expect(layerAt([layer], size, 210, 20, 0.5)?.id).toBe('l')
+    expect(layerAt([layer], size, 210, 20, 0)).toBeNull()
+  })
+})
+

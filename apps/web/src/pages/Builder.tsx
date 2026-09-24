@@ -86,6 +86,8 @@ export default function Builder() {
   const [fps, setFps] = useState(15)
   const reducedMotion = useReducedMotion()
   const [playing, setPlaying] = useState(!reducedMotion)
+  // момент цикла, который холст показывает на паузе: по нему правят ключи анимации
+  const [playhead, setPlayhead] = useState(0)
   const [format, setFormat] = useState<OutFormat>('png')
   const [hex, setHex] = useState(false)
   const [link, setLink] = useState('')
@@ -712,6 +714,11 @@ export default function Builder() {
             cutout={cutout}
             cutoutError={cutoutError}
             warning={layerWarning}
+            time={playhead}
+            onTime={(time) => {
+              setPlaying(false)
+              setPlayhead(time)
+            }}
             onCutoutModel={setCutoutModel}
             onChange={(patch) => updateLayer(selected.id, patch)}
             onCut={cutBackground}
@@ -881,6 +888,7 @@ export default function Builder() {
           assets={assets.bitmaps}
           selectedId={selectedId}
           playing={playing && animated}
+          time={playhead}
           redraw={fontsVersion + assets.version}
           onSelect={setSelectedId}
           onLayerChange={updateLayer}

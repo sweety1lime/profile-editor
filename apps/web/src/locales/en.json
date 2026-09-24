@@ -411,7 +411,21 @@
       "breathe": "Breathe",
       "sway": "Sway",
       "pulse": "Flicker",
-      "shake": "Shake"
+      "shake": "Shake",
+      "keys": "By keys"
+    },
+    "keys": {
+      "title": "Animation keys",
+      "time": "Moment of the loop",
+      "marker": "Key at {{percent}}%",
+      "add": "Put a key at {{percent}}%",
+      "remove": "Remove this key",
+      "x": "Shift horizontally",
+      "y": "Shift vertically",
+      "scale": "Scale",
+      "rotation": "Extra turn",
+      "opacity": "Visibility",
+      "hint": "A key is where the layer is at this moment of the loop, relative to its place. Between keys it moves smoothly, after the last one it returns to the first, so the GIF loops without a jump. The layer itself is dragged as usual — together with the whole path."
     },
     "loop": {
       "title": "Animation loop",

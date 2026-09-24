@@ -162,6 +162,43 @@ try {
     )
   }
 
+  // Анимация по ключам: к середине цикла круг уезжает на 120 вправо и возвращается к началу
+  say('анимация по ключам')
+  await page.getByRole('button', { name: 'По ключам', exact: true }).click()
+  await page.locator('[data-keyframes]').waitFor()
+  await setRange('Момент цикла', 50)
+  await setRange('Сдвиг по горизонтали', 120)
+  await page.waitForTimeout(400)
+  await shot('03-ключи')
+  const keysDownload = page.waitForEvent('download', { timeout: 300000 })
+  await page.getByRole('button', { name: 'Собрать гифки' }).click()
+  const keysPath = `${options.out}/ключи.zip`
+  await (await keysDownload).saveAs(keysPath)
+  const keysGif = unzipSync(new Uint8Array(readFileSync(keysPath)))['featured.gif']
+  if (keysGif) {
+    writeFileSync(`${options.out}/ключи.gif`, keysGif)
+    const moved = await page.evaluate(async (b64) => {
+      const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      const decoder = new ImageDecoder({ data, type: 'image/gif' })
+      await decoder.tracks.ready
+      const count = decoder.tracks.selectedTrack.frameCount
+      const ctx = new OffscreenCanvas(630, 700).getContext('2d')
+      const sample = async (index) => {
+        const { image } = await decoder.decode({ frameIndex: index })
+        ctx.clearRect(0, 0, 630, 700)
+        ctx.drawImage(image, 0, 0)
+        image.close()
+        return Array.from(ctx.getImageData(435, 330, 1, 1).data)
+      }
+      return { start: await sample(0), middle: await sample(Math.round(count / 2) - 1), count }
+    }, Buffer.from(keysGif).toString('base64'))
+    const reddish = (p) => p[0] > 80 && p[0] > p[1] * 3
+    check(reddish(moved.middle), `к середине цикла круг уехал вправо (${moved.middle.slice(0, 3)})`)
+    check(moved.start[0] < 60, `в начале цикла круг на своём месте (${moved.start.slice(0, 3)})`)
+  } else {
+    check(false, 'гифка с ключами собралась')
+  }
+
   check(crashes.length === 0, `без ошибок в консоли${crashes.length ? ': ' + crashes.join(' | ') : ''}`)
 } finally {
   await browser.close()

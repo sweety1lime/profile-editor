@@ -1,8 +1,65 @@
 // Слои конструктора и их анимации. Все координаты в пикселях витрины
 
-export type AnimationKind = 'none' | 'float' | 'breathe' | 'sway' | 'pulse' | 'shake'
+export type AnimationKind = 'none' | 'float' | 'breathe' | 'sway' | 'pulse' | 'shake' | 'keys'
 
-export const ANIMATIONS: AnimationKind[] = ['none', 'float', 'breathe', 'sway', 'pulse', 'shake']
+export const ANIMATIONS: AnimationKind[] = ['none', 'float', 'breathe', 'sway', 'pulse', 'shake', 'keys']
+
+// Ключ анимации: где слой в этот момент цикла относительно своего места. Слой тащат мышью
+// вместе со всей траекторией, поэтому ключи хранят сдвиги, а не точки на холсте
+export interface Keyframe {
+  // доля цикла от 0 до 1
+  t: number
+  x: number
+  y: number
+  // множитель к масштабу слоя
+  scale: number
+  // добавка к повороту, градусы
+  rotation: number
+  // множитель к прозрачности
+  opacity: number
+}
+
+export const neutralKey = (t: number): Keyframe => ({ t, x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 })
+
+// С чего начинается анимация по ключам: слой приподнимается к середине цикла и возвращается
+export const startingKeys = (): Keyframe[] => [neutralKey(0), { ...neutralKey(0.5), y: -20 }]
+
+// Сдвиг слоя в момент t по ключам. Цикл замкнут: после последнего ключа слой идёт к первому,
+// поэтому начало и конец гифки совпадают и она крутится без рывка. Между ключами разгон и
+// торможение: по прямой с постоянной скоростью движение выглядит механическим
+export function keyframeAt(keys: Keyframe[], t: number): Keyframe {
+  if (!keys.length) return neutralKey(t)
+  const sorted = [...keys].sort((a, b) => a.t - b.t)
+  if (sorted.length === 1) return { ...sorted[0]!, t }
+  // до первого ключа идём от последнего, как будто он был циклом раньше
+  let prev = sorted[sorted.length - 1]!
+  let prevT = prev.t - 1
+  for (const key of sorted) {
+    if (key.t <= t) {
+      prev = key
+      prevT = key.t
+    }
+  }
+  // после последнего — к первому, как будто он будет циклом позже
+  let next = sorted[0]!
+  let nextT = next.t + 1
+  const later = sorted.find((key) => key.t > t)
+  if (later) {
+    next = later
+    nextT = later.t
+  }
+  const u = nextT > prevT ? (t - prevT) / (nextT - prevT) : 0
+  const eased = u * u * (3 - 2 * u)
+  const mix = (a: number, b: number) => a + (b - a) * eased
+  return {
+    t,
+    x: mix(prev.x, next.x),
+    y: mix(prev.y, next.y),
+    scale: mix(prev.scale, next.scale),
+    rotation: mix(prev.rotation, next.rotation),
+    opacity: mix(prev.opacity, next.opacity),
+  }
+}
 
 export interface LayerBase {
   id: string
@@ -18,6 +75,8 @@ export interface LayerBase {
   animation: AnimationKind
   // от 0 до 1
   strength: number
+  // для анимации по ключам
+  keyframes?: Keyframe[]
 }
 
 export type BlendMode = 'normal' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'lighter'
@@ -170,13 +229,26 @@ export function poseAt(layer: LayerBase, t: number): Pose {
       pose.x += Math.sin(TAU * t * 8) * 3 * s
       pose.y += Math.cos(TAU * t * 6) * 2 * s
       break
+    case 'keys': {
+      const key = keyframeAt(layer.keyframes ?? [], t)
+      pose.x += key.x
+      pose.y += key.y
+      pose.scale *= key.scale
+      pose.rotation += key.rotation
+      pose.opacity *= key.opacity
+      break
+    }
   }
   return pose
 }
 
+// Движется ли слой: у ключей для движения нужно хотя бы два, у пресетов — ненулевая сила
+const moves = (layer: LayerBase) =>
+  layer.animation === 'keys' ? (layer.keyframes?.length ?? 0) > 1 : layer.animation !== 'none' && layer.strength > 0
+
 export const hasAnimation = (layers: Layer[]) =>
   layers.some(
-    (layer) => layer.visible && (layer.type === 'effect' || (layer.animation !== 'none' && layer.strength > 0)),
+    (layer) => layer.visible && (layer.type === 'effect' || moves(layer)),
   )
 
 // Прямоугольник, который слой занимает на холсте, с учётом поворота и масштаба
@@ -214,12 +286,14 @@ export function layerAt(
   sizeOf: (layer: Layer) => { width: number; height: number },
   px: number,
   py: number,
+  // момент цикла: слой ищем там, где он виден сейчас
+  t = 0,
 ): Layer | null {
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i]!
     if (!layer.visible || layer.type === 'effect') continue
     const { width, height } = sizeOf(layer)
-    if (containsPoint(poseAt(layer, 0), width, height, px, py)) return layer
+    if (containsPoint(poseAt(layer, t), width, height, px, py)) return layer
   }
   return null
 }

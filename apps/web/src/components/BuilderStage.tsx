@@ -8,6 +8,8 @@ interface Props {
   assets: Map<string, ImageBitmap>
   selectedId: string | null
   playing: boolean
+  // какой момент цикла показывать на паузе
+  time: number
   // меняется, когда догрузились шрифты или картинки и сцену надо перерисовать
   redraw: number
   onSelect: (id: string | null) => void
@@ -24,13 +26,15 @@ const PAD = 24
 const ZOOM_STEP = 1.08
 
 export default function BuilderStage(props: Props) {
-  const { scene, background, assets, selectedId, playing, redraw } = props
+  const { scene, background, assets, selectedId, playing, time, redraw } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneCanvas = useRef<HTMLCanvasElement | null>(null)
   const drag = useRef<Drag | null>(null)
   const latest = useRef(props)
   const [size, setSize] = useState({ width: 0, height: 0 })
+  // момент, который сейчас на холсте: по нему ищем слой под курсором, он ведь движется
+  const shownAt = useRef(0)
 
   useLayoutEffect(() => {
     latest.current = props
@@ -72,6 +76,7 @@ export default function BuilderStage(props: Props) {
     const rects = scene.box.slots.flatMap((slot) => sliceRects(slot.kind, slotFrame(slot)))
 
     const draw = (t: number) => {
+      shownAt.current = t
       drawScene(sceneCtx, scene, t, background, assets)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, size.width, size.height)
@@ -92,7 +97,7 @@ export default function BuilderStage(props: Props) {
 
       const layer = scene.layers.find((l) => l.id === selectedId)
       if (layer?.visible && layer.type !== 'effect') {
-        const pose = poseAt(layer, 0)
+        const pose = poseAt(layer, t)
         const own = layerSize(layer)
         const w = own.width * pose.scale * viewScale
         const h = own.height * pose.scale * viewScale
@@ -108,7 +113,7 @@ export default function BuilderStage(props: Props) {
     }
 
     if (!playing) {
-      draw(0)
+      draw(time)
       return
     }
     let frameId = 0
@@ -119,7 +124,7 @@ export default function BuilderStage(props: Props) {
     }
     tick()
     return () => cancelAnimationFrame(frameId)
-  }, [scene, background, assets, selectedId, playing, redraw, size, width, height, viewScale, ox, oy])
+  }, [scene, background, assets, selectedId, playing, time, redraw, size, width, height, viewScale, ox, oy])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -145,7 +150,7 @@ export default function BuilderStage(props: Props) {
     e.currentTarget.setPointerCapture(e.pointerId)
     e.currentTarget.focus()
     const point = toScene(e)
-    const hit = layerAt(scene.layers, layerSize, point.x, point.y)
+    const hit = layerAt(scene.layers, layerSize, point.x, point.y, shownAt.current)
     if (hit) {
       props.onSelect(hit.id)
       drag.current = { kind: 'layer', id: hit.id, x: hit.x, y: hit.y, clientX: e.clientX, clientY: e.clientY }

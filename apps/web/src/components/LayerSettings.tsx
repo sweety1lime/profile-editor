@@ -6,12 +6,14 @@ import {
   EFFECT_COLORS,
   FADE_EDGES,
   imageStyle,
+  startingKeys,
   type BlendMode,
   type ImageLayer,
   type ImageStyle,
   type Layer,
 } from '@profile-editor/core'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton } from './controls'
+import KeyframeEditor from './KeyframeEditor'
 import { FONTS } from '../lib/fonts'
 import { newSeed } from '../lib/newLayer'
 import type { CutoutModel } from '../lib/cutout'
@@ -31,6 +33,9 @@ interface Props {
   cutoutError: 'failed' | 'empty' | null
   // слой попал на стык между частями витрины
   warning: 'seam' | 'hidden' | null
+  // момент цикла на холсте: по нему правят ключи анимации
+  time: number
+  onTime: (time: number) => void
   onCutoutModel: (model: CutoutModel) => void
   onChange: (patch: Partial<Layer>) => void
   onCut: (layer: ImageLayer) => void
@@ -393,7 +398,12 @@ export default function LayerSettings(props: Props) {
                   <button
                     key={animation}
                     type="button"
-                    onClick={() => onChange({ animation })}
+                    onClick={() =>
+                      onChange(
+                        // по ключам начинаем с простого движения, чтобы сразу было что править
+                        animation === 'keys' && !layer.keyframes?.length ? { animation, keyframes: startingKeys() } : { animation },
+                      )
+                    }
                     className={chipClass(animation === layer.animation)}
                   >
                     {t(`builder.animations.${animation}`)}
@@ -401,7 +411,15 @@ export default function LayerSettings(props: Props) {
                 ))}
               </div>
             </div>
-            {layer.animation !== 'none' && (
+            {layer.animation === 'keys' && (
+              <KeyframeEditor
+                keys={layer.keyframes ?? []}
+                time={props.time}
+                onTime={props.onTime}
+                onKeys={(keyframes) => onChange({ keyframes })}
+              />
+            )}
+            {layer.animation !== 'none' && layer.animation !== 'keys' && (
               <RangeRow
                 label={t('builder.layer.strength')}
                 display={`${Math.round(layer.strength * 100)}%`}

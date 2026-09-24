@@ -1,4 +1,4 @@
-import { UPLOAD_LIMIT_BYTES, UPLOAD_MODES, isGif, patchGifTrailer, type UploadMode } from '@profile-editor/core'
+import { UPLOAD_LIMIT_BYTES, UPLOAD_MODES, isGif, kindFromFileName, patchGifTrailer, type UploadMode } from '@profile-editor/core'
 
 // Панель на странице загрузки иллюстрации Steam: выбираешь витрину, выбираешь файл,
 // а поля выставляются сами, как если бы код вставили в консоль
@@ -12,7 +12,8 @@ const ru = (document.documentElement.lang || navigator.language).toLowerCase().s
 const TEXT = ru
   ? {
       modes: { artwork: 'Иллюстрация', featured: 'Избранная', screenshot: 'Скриншот', workshop: 'Мастерская', guide: 'Гайд' },
-      pick: 'Выбери витрину, потом файл. Коды подставятся сами.',
+      pick: 'Выбери файл: для частей из нашего архива витрина выберется сама по имени, для остальных — нажми её.',
+      detected: 'Витрина по имени файла: {mode}.',
       ready: 'Готово, можно сохранять.',
       hex: 'Гифке сделан hex-патч.',
       big: 'Файл больше 5 МБ, Steam может его не принять.',
@@ -21,7 +22,8 @@ const TEXT = ru
     }
   : {
       modes: { artwork: 'Artwork', featured: 'Featured', screenshot: 'Screenshot', workshop: 'Workshop', guide: 'Guide' },
-      pick: 'Pick the showcase, then the file. The codes are filled in for you.',
+      pick: 'Pick the file: for parts from our archive the showcase is chosen by the name, for others press it.',
+      detected: 'Showcase from the file name: {mode}.',
       ready: 'Done, you can save now.',
       hex: 'The GIF got the hex patch.',
       big: 'The file is over 5 MB, Steam may reject it.',
@@ -106,10 +108,18 @@ function fillTitle(file: File) {
   if (title && !title.value.trim()) title.value = file.name.replace(/\.[^.]+$/, '')
 }
 
-async function onFile() {
+// detect — файл только что выбрали: витрину берём из имени. Когда витрину нажали руками,
+// имя её не перебивает
+async function onFile(detect: boolean) {
   const file = fileInput?.files?.[0]
   if (!fileInput || !file) return
   const next: typeof notes = []
+
+  const kind = detect ? kindFromFileName(file.name) : null
+  if (kind) {
+    saveMode(kind)
+    next.push({ text: TEXT.detected.replace('{mode}', TEXT.modes[kind]) })
+  }
 
   if (UPLOAD_MODES[mode].hex) {
     const bytes = new Uint8Array(await file.arrayBuffer())
@@ -137,14 +147,18 @@ async function onFile() {
   render()
 }
 
-function setMode(next: UploadMode) {
+function saveMode(next: UploadMode) {
   mode = next
   try {
     localStorage.setItem(STORAGE_KEY, next)
   } catch {
     // без сохранения тоже работает
   }
-  if (fileInput?.files?.length) onFile()
+}
+
+function setMode(next: UploadMode) {
+  saveMode(next)
+  if (fileInput?.files?.length) onFile(false)
   else render()
 }
 
@@ -197,7 +211,7 @@ if (!fileInput) notes = [{ text: TEXT.noInput, warn: true }]
 render()
 
 fileInput?.addEventListener('change', () => {
-  onFile()
+  onFile(true)
 })
 // перед отправкой формы ставим значения ещё раз, на случай если страница успела их поменять
 document.addEventListener(

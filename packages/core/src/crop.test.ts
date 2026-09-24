@@ -5,8 +5,8 @@ import { PROFILE_OFFSET } from './layout'
 describe('sliceRects', () => {
   it('maps artwork slices onto the source', () => {
     const [main, side] = sliceRects('artwork', { x: 10, y: 20, scale: 2, height: 100 })
-    expect(main).toEqual({ id: 'main', name: '1_main', sx: 10, sy: 20, sw: 1012, sh: 200, outWidth: 506, outHeight: 100 })
-    expect(side).toMatchObject({ name: '2_side', sx: 1040, sw: 200, outWidth: 100, outHeight: 100 })
+    expect(main).toEqual({ id: 'main', name: 'artwork_1_main', sx: 10, sy: 20, sw: 1012, sh: 200, outWidth: 506, outHeight: 100 })
+    expect(side).toMatchObject({ name: 'artwork_2_side', sx: 1040, sw: 200, outWidth: 100, outHeight: 100 })
   })
 
   it('exports workshop parts 150px wide and keeps the aspect ratio', () => {
@@ -23,6 +23,11 @@ describe('sliceRects', () => {
 describe('sliceFileName', () => {
   it('uses the kind name for single slices', () => {
     expect(sliceFileName('featured', 0)).toBe('featured')
+  })
+
+  it('tells artwork and screenshot parts apart', () => {
+    expect(sliceFileName('artwork', 1)).toBe('artwork_2_side')
+    expect(sliceFileName('screenshot', 0)).toBe('screenshot_1_main')
   })
 })
 

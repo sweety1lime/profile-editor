@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DEFAULT_SHOWCASE_HEIGHT, SHOWCASES, hasCounter, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
+import {
+  DEFAULT_SHOWCASE_HEIGHT,
+  SHOWCASES,
+  hasCounter,
+  kindFromFileName,
+  type ProfileData,
+  type ShowcaseKind,
+} from '@profile-editor/core'
 import ProfileReplica, { type ReplicaBackground } from '../components/ProfileReplica'
 import ScaledBox from '../components/ScaledBox'
 import { showcaseStore, useShowcaseStore } from '../lib/showcaseStore'
@@ -130,11 +137,11 @@ export default function Preview() {
 
   function onShowcaseFiles(list: FileList | null) {
     if (!list?.length) return
-    const files = Array.from(list)
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-      .slice(0, SHOWCASES[addKind].slices.length)
-      .map((file) => ({ name: file.name, blob: file as Blob }))
-    showcaseStore.addShowcase(addKind, files)
+    const sorted = Array.from(list).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    // части из нашего архива сами говорят, для какой они витрины
+    const kind = kindFromFileName(sorted[0]!.name) ?? addKind
+    const files = sorted.slice(0, SHOWCASES[kind].slices.length).map((file) => ({ name: file.name, blob: file as Blob }))
+    showcaseStore.addShowcase(kind, files)
   }
 
   const labels = {

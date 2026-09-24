@@ -1,4 +1,4 @@
-import type { ShowcaseKind } from './geometry'
+import { SHOWCASES, type ShowcaseKind } from './geometry'
 
 // Какие поля выставить на странице загрузки иллюстрации для каждой витрины.
 // Те же значения, что в кодах для консоли из UPLOAD_SNIPPETS
@@ -16,6 +16,14 @@ const LONG_IMAGE: UploadField[] = [
   { selector: '#image_width', value: '1000', detach: true },
   { selector: '#image_height', value: '1', detach: true },
 ]
+
+// Для какой витрины файл из нашего архива: имя начинается с неё, см. sliceFileName.
+// У чужого файла витрину по имени не угадать, тогда её выбирают руками
+export function kindFromFileName(name: string): ShowcaseKind | null {
+  const match = /^([a-z]+)(?:[_.]|$)/i.exec(name)
+  const kind = match?.[1]?.toLowerCase()
+  return kind && kind in SHOWCASES ? (kind as ShowcaseKind) : null
+}
 
 export const UPLOAD_MODES: Record<UploadMode, { fields: UploadField[]; hex: boolean }> = {
   artwork: { fields: LONG_IMAGE, hex: false },

@@ -36,12 +36,13 @@ export const clampScale = (scale: number) => Math.min(MAX_SCALE, Math.max(MIN_SC
 
 export const isProfileBackground = (width: number) => width === PROFILE_BACKGROUND_WIDTH
 
-// Имена файлов с номером, чтобы было понятно, в каком порядке загружать
+// По имени файла видно, для какой он витрины и каким по счёту его загружать: artwork_1_main,
+// screenshot_2_side, featured, workshop_3. Помощник загрузки по имени сам выбирает витрину
 export function sliceFileName(kind: ShowcaseKind, index: number): string {
   const { slices } = SHOWCASES[kind]
   if (slices.length === 1) return kind
   if (kind === 'workshop') return `workshop_${index + 1}`
-  return `${index + 1}_${slices[index]?.id ?? index + 1}`
+  return `${kind}_${index + 1}_${slices[index]?.id ?? index + 1}`
 }
 
 export function sliceRects(kind: ShowcaseKind, frame: Frame): SliceRect[] {

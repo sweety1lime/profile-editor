@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "e2e": "node scripts/e2e/showcase.mjs",
     "e2e:kit": "node scripts/e2e/kit.mjs",
-    "e2e:styles": "node scripts/e2e/styles.mjs"
+    "e2e:styles": "node scripts/e2e/styles.mjs",
+    "e2e:helper": "node scripts/e2e/helper.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

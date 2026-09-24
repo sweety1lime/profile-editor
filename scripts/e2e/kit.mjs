@@ -95,8 +95,8 @@ function makeArt() {
 // Размеры частей те же, что в одиночной нарезке, у мастерской файлы крупнее страницы
 function checkStills(files, heights) {
   const expected = {
-    '1-artwork/1_main.png': [506, heights.artwork],
-    '1-artwork/2_side.png': [100, heights.artwork],
+    '1-artwork/artwork_1_main.png': [506, heights.artwork],
+    '1-artwork/artwork_2_side.png': [100, heights.artwork],
     '2-featured/featured.png': [630, heights.featured],
     '3-workshop/workshop_1.png': [150, 150],
     '3-workshop/workshop_5.png': [150, 150],
@@ -116,7 +116,7 @@ function checkStills(files, heights) {
 // встала — меряем в превью. Мастерская растянута до 150 px, её сверяем с допуском пошире
 async function checkAlignment(files) {
   const parts = {
-    artwork: ['1-artwork/1_main.png', '1-artwork/2_side.png'],
+    artwork: ['1-artwork/artwork_1_main.png', '1-artwork/artwork_2_side.png'],
     featured: ['2-featured/featured.png'],
     workshop: [1, 2, 3, 4, 5].map((n) => `3-workshop/workshop_${n}.png`),
   }

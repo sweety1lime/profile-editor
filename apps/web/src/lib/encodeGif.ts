@@ -1,4 +1,5 @@
 import {
+  GIF_ATTEMPTS,
   patchGifTrailer,
   sliceRects,
   stepForBudget,
@@ -24,7 +25,6 @@ export interface GifResult {
   delays: number[]
 }
 
-const COLOR_STEPS = [256, 192, 128, 96, 64]
 const MAX_THIN_STEP = 3
 
 type EncodeReply = { ok: true; bytes: Uint8Array; colors: number } | { ok: false }
@@ -43,7 +43,7 @@ class PartEncoder {
     return new Promise((resolve, reject) => {
       this.worker.onmessage = (e: MessageEvent<EncodeReply>) => resolve(e.data)
       this.worker.onerror = (e) => reject(e)
-      this.worker.postMessage({ type: 'encode', indices, delays, limit, colors: COLOR_STEPS })
+      this.worker.postMessage({ type: 'encode', indices, delays, limit, attempts: GIF_ATTEMPTS })
     })
   }
 

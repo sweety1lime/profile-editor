@@ -128,6 +128,40 @@ try {
   const frames = gif ? gifFrames(gif) : 0
   check(frames > 1, `гифка с оформлением собралась: ${frames} кадров за ${seconds} с`)
 
+  // Кадры пишутся только там, где что-то поменялось, и ложатся поверх прошлых. Смотрим глазами
+  // самого браузера: круг в центре на каждом кадре, а в углу пусто — если бы место кадра не
+  // записалось, куски круга полезли бы в левый верхний угол
+  if (gif) {
+    const played = await page.evaluate(async (b64) => {
+      const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      const decoder = new ImageDecoder({ data, type: 'image/gif' })
+      await decoder.tracks.ready
+      const count = decoder.tracks.selectedTrack.frameCount
+      const ctx = new OffscreenCanvas(630, 700).getContext('2d')
+      const out = []
+      for (let i = 0; i < count; i++) {
+        const { image } = await decoder.decode({ frameIndex: i })
+        ctx.clearRect(0, 0, 630, 700)
+        ctx.drawImage(image, 0, 0)
+        image.close()
+        const at = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data)
+        out.push({ center: at(315, 350), corner: at(20, 20) })
+      }
+      return out
+    }, Buffer.from(gif).toString('base64'))
+    check(played.length === frames, `браузер видит все кадры (${played.length})`)
+    // низ круга с прошлого шага растворяется, поэтому в центре он наполовину прозрачный поверх
+    // чёрного — не ярко-красный, но явно красный
+    check(
+      played.every((f) => f.center[0] > 80 && f.center[0] > f.center[1] * 3),
+      'на каждом кадре круг на своём месте',
+    )
+    check(
+      played.every((f) => f.corner[0] < 20 && f.corner[1] < 20 && f.corner[2] < 20),
+      'в углу пусто на каждом кадре: кадры встают на свои места',
+    )
+  }
+
   check(crashes.length === 0, `без ошибок в консоли${crashes.length ? ': ' + crashes.join(' | ') : ''}`)
 } finally {
   await browser.close()

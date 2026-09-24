@@ -106,11 +106,23 @@ export const hasAnimation = (layers: Layer[]) =>
     (layer) => layer.visible && (layer.type === 'effect' || (layer.animation !== 'none' && layer.strength > 0)),
   )
 
-// Левый и правый край слоя на витрине с учётом поворота и масштаба
-export function horizontalSpan(pose: Pose, width: number, height: number): { left: number; right: number } {
+// Прямоугольник, который слой занимает на холсте, с учётом поворота и масштаба
+export function layerBounds(
+  pose: Pose,
+  width: number,
+  height: number,
+): { left: number; right: number; top: number; bottom: number } {
   const angle = (pose.rotation * Math.PI) / 180
-  const half = (Math.abs(Math.cos(angle)) * width + Math.abs(Math.sin(angle)) * height) * (pose.scale / 2)
-  return { left: pose.x - half, right: pose.x + half }
+  const cos = Math.abs(Math.cos(angle))
+  const sin = Math.abs(Math.sin(angle))
+  const halfWidth = (cos * width + sin * height) * (pose.scale / 2)
+  const halfHeight = (sin * width + cos * height) * (pose.scale / 2)
+  return {
+    left: pose.x - halfWidth,
+    right: pose.x + halfWidth,
+    top: pose.y - halfHeight,
+    bottom: pose.y + halfHeight,
+  }
 }
 
 // Попадает ли точка в слой с учётом поворота и масштаба. width и height — собственный размер слоя

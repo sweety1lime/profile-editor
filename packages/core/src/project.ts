@@ -1,18 +1,21 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import type { Layer } from './builder'
+import type { KitItem } from './kit'
 import type { Frame } from './crop'
 import { SHOWCASES, type ShowcaseKind } from './geometry'
 
 // Проект конструктора и его файл для переноса: zip с project.json и картинками
 
 export const PROJECT_FORMAT = 'profile-editor-project'
-export const PROJECT_VERSION = 1
+export const PROJECT_VERSION = 2
 
 export interface ProjectData {
   id: string
   name: string
   updatedAt: number
   kind: ShowcaseKind
+  // витрины комплекта, если холст собирали на весь профиль
+  kit: KitItem[] | null
   height: number
   frame: Frame | null
   durationMs: number
@@ -61,6 +64,7 @@ export async function packProject(project: ProjectData): Promise<Uint8Array> {
       name: project.name,
       updatedAt: project.updatedAt,
       kind: project.kind,
+      kit: project.kit,
       height: project.height,
       frame: project.frame,
       durationMs: project.durationMs,
@@ -116,6 +120,8 @@ export function unpackProject(bytes: Uint8Array): ProjectData {
 
   return {
     ...project,
+    // в первой версии формата комплектов ещё не было
+    kit: project.kit ?? null,
     background: project.background ? { blob: blob(project.background), name: project.background.name } : null,
     assets,
     thumbnail: project.thumbnail ? blob(project.thumbnail) : null,

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { layerAt, poseAt, sliceRects, zoomFrame, type Frame, type Layer } from '@profile-editor/core'
-import { drawScene, layerSize, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
+import { layerAt, poseAt, sliceRects, slotFrame, zoomSceneFrame, type Frame, type Layer } from '@profile-editor/core'
+import { drawScene, layerSize, type Scene, type SceneBackground } from '../lib/compose'
 
 interface Props {
   scene: Scene
@@ -46,12 +46,12 @@ export default function BuilderStage(props: Props) {
     return () => observer.disconnect()
   }, [])
 
-  const width = sceneWidth(scene.kind)
+  const { width, height } = scene.box
   const viewScale = size.width
-    ? Math.max(0.05, Math.min((size.width - PAD * 2) / width, (size.height - PAD * 2) / scene.height))
+    ? Math.max(0.05, Math.min((size.width - PAD * 2) / width, (size.height - PAD * 2) / height))
     : 1
   const ox = (size.width - width * viewScale) / 2
-  const oy = (size.height - scene.height * viewScale) / 2
+  const oy = (size.height - height * viewScale) / 2
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -63,25 +63,26 @@ export default function BuilderStage(props: Props) {
     if (!ctx) return
 
     const offscreen = (sceneCanvas.current ??= document.createElement('canvas'))
-    if (offscreen.width !== width || offscreen.height !== scene.height) {
+    if (offscreen.width !== width || offscreen.height !== height) {
       offscreen.width = width
-      offscreen.height = scene.height
+      offscreen.height = height
     }
     const sceneCtx = offscreen.getContext('2d')!
-    const rects = sliceRects(scene.kind, { x: 0, y: 0, scale: 1, height: scene.height })
+    // окна всех витрин холста: у одиночной витрины оно одно, у комплекта — по одному на витрину
+    const rects = scene.box.slots.flatMap((slot) => sliceRects(slot.kind, slotFrame(slot)))
 
     const draw = (t: number) => {
       drawScene(sceneCtx, scene, t, background, assets)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, size.width, size.height)
       ctx.fillStyle = '#10141c'
-      ctx.fillRect(ox, oy, width * viewScale, scene.height * viewScale)
+      ctx.fillRect(ox, oy, width * viewScale, height * viewScale)
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(offscreen, ox, oy, width * viewScale, scene.height * viewScale)
+      ctx.drawImage(offscreen, ox, oy, width * viewScale, height * viewScale)
 
-      // зазоры между частями в профиле не видны, затемняем их
+      // чего в профиле не видно — зазоры между частями и полосы между витринами — затемняем
       ctx.beginPath()
-      ctx.rect(ox, oy, width * viewScale, scene.height * viewScale)
+      ctx.rect(ox, oy, width * viewScale, height * viewScale)
       for (const r of rects) ctx.rect(ox + r.sx * viewScale, oy + r.sy * viewScale, r.sw * viewScale, r.sh * viewScale)
       ctx.fillStyle = 'rgba(6, 8, 13, 0.75)'
       ctx.fill('evenodd')
@@ -118,7 +119,7 @@ export default function BuilderStage(props: Props) {
     }
     tick()
     return () => cancelAnimationFrame(frameId)
-  }, [scene, background, assets, selectedId, playing, redraw, size, width, viewScale, ox, oy])
+  }, [scene, background, assets, selectedId, playing, redraw, size, width, height, viewScale, ox, oy])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -129,7 +130,7 @@ export default function BuilderStage(props: Props) {
       const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP
       const layer = scene.layers.find((l) => l.id === selectedId)
       if (layer && layer.type !== 'effect') onLayerChange(layer.id, { scale: Math.min(20, Math.max(0.02, layer.scale * factor)) })
-      else if (background) onBackgroundChange(zoomFrame(scene.kind, background.frame, background.frame.scale / factor))
+      else if (background) onBackgroundChange(zoomSceneFrame(scene.box, background.frame, background.frame.scale / factor))
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
     return () => canvas.removeEventListener('wheel', onWheel)

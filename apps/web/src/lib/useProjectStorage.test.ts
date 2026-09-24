@@ -17,6 +17,7 @@ const project: Omit<ProjectData, 'thumbnail'> = {
   name: 'Работа',
   updatedAt: 0,
   kind: 'artwork',
+  kit: null,
   height: 700,
   frame: null,
   durationMs: 2000,

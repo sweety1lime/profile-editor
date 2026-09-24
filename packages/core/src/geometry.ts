@@ -61,10 +61,6 @@ export function sliceGaps(kind: ShowcaseKind): { start: number; end: number }[] 
   return gaps
 }
 
-// Попадает ли что-то шириной от left до right на стык между частями
-export const crossesGap = (kind: ShowcaseKind, left: number, right: number) =>
-  sliceGaps(kind).some((gap) => left < gap.end && right > gap.start)
-
 // Фоны профиля шириной 1920 px. В режиме «Original Size» фон стоит по центру страницы без масштабирования
 export const PROFILE_BACKGROUND_WIDTH = 1920
 

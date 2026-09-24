@@ -1,21 +1,20 @@
 import {
-  SHOWCASES,
   effectParticles,
   poseAt,
   type EffectLayer,
   type Frame,
   type Layer,
-  type ShowcaseKind,
+  type SceneBox,
   type TextLayer,
 } from '@profile-editor/core'
 import type { AnimatedSource } from './animated'
 import type { Source } from './source'
 
-// Сцена конструктора: фон и слои поверх него, размер как у витрины
+// Сцена конструктора: фон и слои поверх него. Размер и окна витрин берутся из холста,
+// поэтому одна и та же сцена собирается и под одну витрину, и на весь профиль
 
 export interface Scene {
-  kind: ShowcaseKind
-  height: number
+  box: SceneBox
   layers: Layer[]
   durationMs: number
   fps: number
@@ -25,8 +24,6 @@ export interface SceneBackground {
   image: CanvasImageSource
   frame: Frame
 }
-
-export const sceneWidth = (kind: ShowcaseKind) => Math.ceil(SHOWCASES[kind].width)
 
 const LINE_HEIGHT = 1.2
 
@@ -167,17 +164,17 @@ export function drawScene(
   background: SceneBackground | null,
   assets: Map<string, ImageBitmap>,
 ) {
-  const width = sceneWidth(scene.kind)
-  ctx.clearRect(0, 0, width, scene.height)
+  const { width, height } = scene.box
+  ctx.clearRect(0, 0, width, height)
   if (background) {
     const { image, frame } = background
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(image, frame.x, frame.y, width * frame.scale, scene.height * frame.scale, 0, 0, width, scene.height)
+    ctx.drawImage(image, frame.x, frame.y, width * frame.scale, height * frame.scale, 0, 0, width, height)
   }
   for (const layer of scene.layers) {
     if (!layer.visible) continue
     if (layer.type === 'effect') {
-      drawEffect(ctx, layer, width, scene.height, t, scene.durationMs / 1000)
+      drawEffect(ctx, layer, width, height, t, scene.durationMs / 1000)
       continue
     }
     const pose = poseAt(layer, t)
@@ -202,10 +199,10 @@ export function sceneSource(
   background: { source: Source; frame: Frame } | null,
   assets: Map<string, ImageBitmap>,
 ): AnimatedSource {
-  const width = sceneWidth(scene.kind)
+  const { width, height } = scene.box
   const canvas = document.createElement('canvas')
   canvas.width = width
-  canvas.height = scene.height
+  canvas.height = height
   const ctx = canvas.getContext('2d')!
   const duration = scene.durationMs / 1000
 
@@ -214,7 +211,7 @@ export function sceneSource(
     name: 'scene',
     blob: new Blob(),
     width,
-    height: scene.height,
+    height,
     duration,
     fps: scene.fps,
     poster: canvas,

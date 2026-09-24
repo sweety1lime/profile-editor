@@ -257,6 +257,10 @@
       "title": "Background",
       "hint": "Drag an empty spot to move the background, scroll over an empty spot to zoom it."
     },
+    "kit": {
+      "title": "Whole profile",
+      "hint": "showcases stacked, the picture runs through"
+    },
     "layers": {
       "title": "Layers",
       "addImage": "Picture",
@@ -285,7 +289,8 @@
       "animation": "Animation",
       "strength": "Strength",
       "hint": "Drag the layer with the mouse, scroll to resize, arrow keys move it by a pixel, Delete removes it.",
-      "seam": "This layer sits on the seam between showcase parts — Steam will cut it in two."
+      "seam": "This layer sits on the seam between showcase parts — Steam will cut it in two.",
+      "hidden": "The layer fell between the showcases — the profile will not show it."
     },
     "projects": {
       "title": "Project",

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { ANIMATIONS, containsPoint, hasAnimation, layerAt, moveLayer, poseAt, type Layer, type LayerBase } from './builder'
+import {
+  ANIMATIONS,
+  containsPoint,
+  hasAnimation,
+  layerAt,
+  layerBounds,
+  moveLayer,
+  poseAt,
+  type Layer,
+  type LayerBase,
+} from './builder'
 
 const base = (patch: Partial<LayerBase> = {}): LayerBase => ({
   id: 'a',
@@ -90,5 +100,19 @@ describe('hasAnimation', () => {
     expect(hasAnimation([image('a', { animation: 'float' })])).toBe(true)
     expect(hasAnimation([image('a', { animation: 'float', visible: false })])).toBe(false)
     expect(hasAnimation([image('a', { animation: 'float', strength: 0 })])).toBe(false)
+  })
+})
+
+describe('layerBounds', () => {
+  const pose = { x: 100, y: 50, scale: 1, rotation: 0, opacity: 1 }
+
+  it('is the layer itself when nothing is turned', () => {
+    expect(layerBounds(pose, 40, 20)).toEqual({ left: 80, right: 120, top: 40, bottom: 60 })
+  })
+
+  it('swaps the sides on a quarter turn', () => {
+    const turned = layerBounds({ ...pose, rotation: 90 }, 40, 20)
+    expect(turned.right - turned.left).toBeCloseTo(20)
+    expect(turned.bottom - turned.top).toBeCloseTo(40)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { strToU8, zipSync } from 'fflate'
+import { strFromU8, strToU8, zipSync } from 'fflate'
 import { ProjectFileError, packProject, unpackProject, type ProjectData } from './project'
 
 const project = (): ProjectData => ({
@@ -7,6 +7,7 @@ const project = (): ProjectData => ({
   name: 'Мой проект',
   updatedAt: 1789000000000,
   kind: 'artwork',
+  kit: null,
   height: 700,
   frame: { x: 503, y: 305, scale: 1, height: 700 },
   durationMs: 2000,
@@ -52,6 +53,23 @@ describe('packProject / unpackProject', () => {
     expect(back.background!.name).toBe('bg.jpg')
     expect(await back.assets.a1!.text()).toBe('png-bytes')
     expect(await back.thumbnail!.text()).toBe('thumb')
+  })
+
+  it('keeps the kit of a whole-profile project', async () => {
+    const kit = [{ id: 'k1', kind: 'artwork' as const, height: 260 }, { id: 'k2', kind: 'featured' as const, height: 220 }]
+    const back = unpackProject(await packProject({ ...project(), kit }))
+    expect(back.kit).toEqual(kit)
+  })
+
+  it('opens projects from before the kit existed', async () => {
+    const bytes = await packProject(project())
+    const { unzipSync } = await import('fflate')
+    const files = unzipSync(bytes)
+    const manifest = JSON.parse(strFromU8(files['project.json']!))
+    delete manifest.project.kit
+    manifest.version = 1
+    files['project.json'] = strToU8(JSON.stringify(manifest))
+    expect(unpackProject(zipSync(files)).kit).toBeNull()
   })
 
   it('works without a background and thumbnail', async () => {

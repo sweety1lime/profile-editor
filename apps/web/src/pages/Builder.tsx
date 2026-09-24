@@ -2,19 +2,24 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
+  DEFAULT_KIT,
   FPS_OPTIONS,
-  PROFILE_OFFSET,
   UPLOAD_LIMIT_BYTES,
   clampHeight,
-  crossesGap,
-  fitFrame,
+  crossesSeam,
+  fitSceneFrame,
   hasAnimation,
-  horizontalSpan,
+  hiddenBetweenSlots,
   isProfileBackground,
+  kitBox,
+  kitItem,
+  layerBounds,
   moveLayer,
   poseAt,
+  showcaseBox,
   type Frame,
   type ImageLayer,
+  type KitItem,
   type Layer,
   type ProjectData,
   type ShowcaseKind,
@@ -22,8 +27,9 @@ import {
 import BuilderStage from '../components/BuilderStage'
 import LayerSettings, { type CutoutProgress } from '../components/LayerSettings'
 import ProjectsPanel from '../components/ProjectsPanel'
+import ShowcaseList from '../components/ShowcaseList'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
-import { drawScene, layerSize, sceneWidth, type Scene, type SceneBackground } from '../lib/compose'
+import { drawScene, layerSize, type Scene, type SceneBackground } from '../lib/compose'
 import { removeBackground, type CutoutModel } from '../lib/cutout'
 import { toMegabytes, type OutFormat } from '../lib/exportSlices'
 import { useFontsReady } from '../lib/fonts'
@@ -50,6 +56,8 @@ const stageButton =
 // Состояние холста, которое ходит по истории правок
 interface Doc {
   kind: ShowcaseKind
+  // витрины комплекта, если холст собирают на весь профиль
+  kit: KitItem[] | null
   frame: Frame | null
   height: number
   layers: Layer[]
@@ -67,6 +75,7 @@ export default function Builder() {
 
   const [source, setSource] = useState<Source | null>(null)
   const [kind, setKind] = useState<ShowcaseKind>('artwork')
+  const [kit, setKit] = useState<KitItem[] | null>(null)
   const [frame, setFrame] = useState<Frame | null>(null)
   const [height, setHeight] = useState(DEFAULT_HEIGHT)
   const [layers, setLayers] = useState<Layer[]>([])
@@ -90,14 +99,15 @@ export default function Builder() {
   const imageInput = useRef<HTMLInputElement>(null)
   const fontsVersion = useFontsReady(layers)
 
-  const width = sceneWidth(kind)
-  const scene = useMemo<Scene>(() => ({ kind, height, layers, durationMs, fps }), [kind, height, layers, durationMs, fps])
+  // холст: одна витрина или вся левая колонка профиля сразу
+  const box = useMemo(() => (kit ? kitBox(kit) : showcaseBox(kind, height)), [kit, kind, height])
+  const scene = useMemo<Scene>(() => ({ box, layers, durationMs, fps }), [box, layers, durationMs, fps])
   const background = useMemo<SceneBackground | null>(
     () =>
       source && frame
-        ? { image: source.type === 'still' ? source.image : source.poster, frame: { ...frame, height } }
+        ? { image: source.type === 'still' ? source.image : source.poster, frame: { ...frame, height: box.height } }
         : null,
-    [source, frame, height],
+    [source, frame, box.height],
   )
   const selected = layers.find((l) => l.id === selectedId) ?? null
   const animated = hasAnimation(layers) || source?.type === 'animated'
@@ -116,24 +126,25 @@ export default function Builder() {
   // Что отменяется и возвращается. Фон сюда не входит: его Source живёт ровно один раз,
   // старый освобождается при замене, и вернуть его было бы нечем
   const doc = useMemo<Doc>(
-    () => ({ kind, frame, height, layers, durationMs, fps, format, hex }),
-    [kind, frame, height, layers, durationMs, fps, format, hex],
+    () => ({ kind, kit, frame, height, layers, durationMs, fps, format, hex }),
+    [kind, kit, frame, height, layers, durationMs, fps, format, hex],
   )
   const history = useHistory(doc)
 
-  // Слой, легший на стык частей витрины, в профиле разрежет пополам. Заметить это на холсте
-  // трудно: зазор узкий, а картинка через него читается как целая
-  const crossesSeam = useMemo(() => {
-    if (!selected || selected.type === 'effect' || !selected.visible) return false
+  // Слой, легший на стык частей витрины, в профиле разрежет пополам, а слой между витринами
+  // не покажут вовсе. Заметить это на холсте трудно: зазор узкий, картинка через него читается
+  const layerWarning = useMemo<'seam' | 'hidden' | null>(() => {
+    if (!selected || selected.type === 'effect' || !selected.visible) return null
     const own = layerSize(selected)
-    const span = horizontalSpan(poseAt(selected, 0), own.width, own.height)
-    return crossesGap(kind, span.left, span.right)
-  }, [selected, kind])
+    const rect = layerBounds(poseAt(selected, 0), own.width, own.height)
+    if (hiddenBetweenSlots(box, rect)) return 'hidden'
+    return crossesSeam(box, rect) ? 'seam' : null
+  }, [selected, box])
 
   // всё, что попадает в сохранённый проект: поменялось — пора сохраняться заново
   const revision = useMemo(
-    () => [source, kind, frame, height, layers, durationMs, fps, format, hex, assets.version],
-    [source, kind, frame, height, layers, durationMs, fps, format, hex, assets.version],
+    () => [source, kind, kit, frame, height, layers, durationMs, fps, format, hex, assets.version],
+    [source, kind, kit, frame, height, layers, durationMs, fps, format, hex, assets.version],
   )
 
   const storage = useProjectStorage({
@@ -158,6 +169,7 @@ export default function Builder() {
 
   function applyDoc(next: Doc) {
     setKind(next.kind)
+    setKit(next.kit)
     setFrame(next.frame)
     setHeight(next.height)
     setLayers(next.layers)
@@ -217,10 +229,11 @@ export default function Builder() {
     setError(null)
     try {
       const next = await task()
-      const fitted = fitFrame(kind, next.width, next.height)
+      const fitted = fitSceneFrame(box, next.width, next.height)
       setSource(next)
       setFrame(fitted)
-      setHeight(fitted.height)
+      // у комплекта высоту холста задают сами витрины
+      if (!kit) setHeight(fitted.height)
       exporter.reset()
     } catch (err) {
       setError(err instanceof SourceError ? err.code : 'load_failed')
@@ -245,13 +258,28 @@ export default function Builder() {
 
   function changeKind(next: ShowcaseKind) {
     setKind(next)
+    setKit(null)
     setHex(next === 'workshop')
     exporter.reset()
     if (!source || !frame) return
+    const nextBox = showcaseBox(next, height)
     setFrame(
       isProfileBackground(source.width)
-        ? { ...frame, x: PROFILE_OFFSET[next].x }
-        : { ...fitFrame(next, source.width, source.height), y: frame.y, height },
+        ? { ...frame, x: nextBox.origin.x }
+        : { ...fitSceneFrame(nextBox, source.width, source.height), y: frame.y, height },
+    )
+  }
+
+  // Холст на весь профиль: витрины стоят друг под другом, и картинка идёт через них насквозь
+  function changeKit(next: KitItem[] | null) {
+    setKit(next)
+    exporter.reset()
+    if (!source || !frame || !next?.length) return
+    const nextBox = kitBox(next)
+    setFrame(
+      isProfileBackground(source.width)
+        ? { ...frame, ...nextBox.origin, scale: 1 }
+        : fitSceneFrame(nextBox, source.width, source.height),
     )
   }
 
@@ -286,7 +314,7 @@ export default function Builder() {
     }
     const id = newId()
     assets.add(id, bitmap, file)
-    addLayer(imageLayer(id, file.name, bitmap, { width, height }))
+    addLayer(imageLayer(id, file.name, bitmap, box))
   }
 
   async function cutBackground(layer: ImageLayer) {
@@ -331,9 +359,9 @@ export default function Builder() {
 
   function drawThumbnail() {
     const canvas = document.createElement('canvas')
-    const k = THUMB_WIDTH / width
+    const k = THUMB_WIDTH / box.width
     canvas.width = THUMB_WIDTH
-    canvas.height = Math.max(1, Math.round(height * k))
+    canvas.height = Math.max(1, Math.round(box.height * k))
     const ctx = canvas.getContext('2d')!
     try {
       ctx.scale(k, k)
@@ -363,6 +391,7 @@ export default function Builder() {
       name: storage.name.trim() || storage.session.autoName,
       updatedAt: Date.now(),
       kind,
+      kit,
       height,
       frame,
       durationMs,
@@ -390,6 +419,7 @@ export default function Builder() {
     history.reset()
     resetView()
     setSource(null)
+    setKit(null)
     setFrame(null)
     setHeight(DEFAULT_HEIGHT)
     setLayers([])
@@ -427,7 +457,9 @@ export default function Builder() {
     resetView()
     setSource(next)
     setKind(data.kind)
-    setFrame(next ? (data.frame ?? fitFrame(data.kind, next.width, next.height)) : null)
+    setKit(data.kit)
+    const loadedBox = data.kit ? kitBox(data.kit) : showcaseBox(data.kind, data.height)
+    setFrame(next ? (data.frame ?? fitSceneFrame(loadedBox, next.width, next.height)) : null)
     setHeight(data.height)
     setLayers(data.layers)
     setDurationMs(data.durationMs)
@@ -437,13 +469,25 @@ export default function Builder() {
   }
 
   function sendToPreview() {
-    if (!exporter.result) return
-    showcaseStore.addShowcase(kind, exporter.result.files)
+    if (!exporter.groups) return
+    for (const group of exporter.groups) {
+      const counter = kit?.find((item) => item.id === group.id)?.counter
+      showcaseStore.addShowcase(group.kind, group.files, { counter })
+    }
     if (source && isProfileBackground(source.width)) {
       showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })
     }
     navigate(`/${lang}/preview`)
   }
+
+  const groups = exporter.groups
+  const exportLabel = kit
+    ? animated
+      ? 'kit.export.gifButton'
+      : 'kit.export.button'
+    : animated
+      ? 'cutter.export.gifButton'
+      : 'cutter.export.button'
 
   const layerLabel = (layer: Layer) => {
     if (layer.type === 'text') return layer.text.split('\n')[0] || '…'
@@ -506,32 +550,50 @@ export default function Builder() {
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             {KINDS.map((k) => (
-              <button key={k} type="button" onClick={() => changeKind(k)} className={toggleClass(k === kind)}>
+              <button key={k} type="button" onClick={() => changeKind(k)} className={toggleClass(!kit && k === kind)}>
                 <div className="text-sm font-medium">{t(`cutter.kind.${k}`)}</div>
                 <div className="text-xs text-slate-500">{t(`cutter.kind.${k}Size`)}</div>
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => changeKit(kit ?? DEFAULT_KIT.map((k) => kitItem(k)))}
+            className={`${toggleClass(!!kit)} mt-2 w-full`}
+          >
+            <div className="text-sm font-medium">{t('builder.kit.title')}</div>
+            <div className="text-xs text-slate-500">{t('builder.kit.hint')}</div>
+          </button>
 
           <div className="mt-3 space-y-3 text-sm">
-            <RangeRow
-              label={t('cutter.frame.height')}
-              display={`${height}`}
-              value={height}
-              min={100}
-              max={2000}
-              onChange={(value) => {
-                setHeight(clampHeight(value))
-                exporter.reset()
-              }}
-            />
+            {kit ? (
+              <ShowcaseList
+                items={kit}
+                onChange={changeKit}
+                onAdd={(k) => {
+                  if (k === 'workshop') setHex(true)
+                }}
+              />
+            ) : (
+              <RangeRow
+                label={t('cutter.frame.height')}
+                display={`${height}`}
+                value={height}
+                min={100}
+                max={2000}
+                onChange={(value) => {
+                  setHeight(clampHeight(value))
+                  exporter.reset()
+                }}
+              />
+            )}
             {source && frame && (
               <div className="flex gap-2">
                 {isProfileBackground(source.width) && (
                   <button
                     type="button"
                     className={secondaryButton}
-                    onClick={() => changeFrame({ ...frame, ...PROFILE_OFFSET[kind], scale: 1 })}
+                    onClick={() => changeFrame({ ...frame, ...box.origin, scale: 1 })}
                   >
                     {t('cutter.frame.alignProfile')}
                   </button>
@@ -539,7 +601,9 @@ export default function Builder() {
                 <button
                   type="button"
                   className={secondaryButton}
-                  onClick={() => changeFrame({ ...fitFrame(kind, source.width, source.height), y: frame.y, height })}
+                  onClick={() =>
+                    changeFrame({ ...fitSceneFrame(box, source.width, source.height), y: frame.y, height: box.height })
+                  }
                 >
                   {t('cutter.frame.fitWidth')}
                 </button>
@@ -556,14 +620,14 @@ export default function Builder() {
             </button>
             <button
               type="button"
-              onClick={() => addLayer(textLayer(newId(), t('builder.defaultText'), { width, height }))}
+              onClick={() => addLayer(textLayer(newId(), t('builder.defaultText'), box))}
               className={`${secondaryButton} flex-1`}
             >
               + {t('builder.layers.addText')}
             </button>
             <button
               type="button"
-              onClick={() => addLayer(effectLayer(newId(), { width, height }))}
+              onClick={() => addLayer(effectLayer(newId(), box))}
               className={`${secondaryButton} flex-1`}
             >
               + {t('builder.layers.addEffect')}
@@ -639,7 +703,7 @@ export default function Builder() {
             cutoutModel={cutoutModel}
             cutout={cutout}
             cutoutError={cutoutError}
-            crossesSeam={crossesSeam}
+            warning={layerWarning}
             onCutoutModel={setCutoutModel}
             onChange={(patch) => updateLayer(selected.id, patch)}
             onCut={cutBackground}
@@ -732,26 +796,36 @@ export default function Builder() {
           disabled={(!source && layers.length === 0) || !!exporter.busy}
           className="w-full rounded-lg bg-accent px-4 py-2.5 font-medium text-ink disabled:opacity-50"
         >
-          {exporter.label ?? t(animated ? 'cutter.export.gifButton' : 'cutter.export.button')}
+          {exporter.label ?? t(exportLabel)}
         </button>
         {exporter.error && <p className="text-sm text-red-400">{t(`cutter.export.${exporter.error}`)}</p>}
 
-        {exporter.result && (
-          <div className="space-y-2">
-            <ul className="space-y-1 text-sm">
-              {exporter.result.files.map((f) => (
-                <li key={f.name} className="flex justify-between">
-                  <span className="text-slate-300">{f.name}</span>
-                  <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
-                    {t('cutter.export.size', { mb: toMegabytes(f.blob.size) })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {exporter.result.thinned && <p className="text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
+        {groups && (
+          <div className="space-y-3">
+            {groups.map((group, index) => (
+              <div key={group.id}>
+                {groups.length > 1 && (
+                  <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">
+                    {index + 1}. {t(`cutter.kind.${group.kind}`)}
+                  </div>
+                )}
+                <ul className="space-y-1 text-sm">
+                  {group.files.map((f) => (
+                    <li key={f.name} className="flex justify-between">
+                      <span className="text-slate-300">{f.name}</span>
+                      <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
+                        {t('cutter.export.size', { mb: toMegabytes(f.blob.size) })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {group.thinned && <p className="mt-1 text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
+              </div>
+            ))}
             <button type="button" onClick={sendToPreview} className={`${secondaryButton} w-full`}>
-              {t('cutter.result.toPreview')}
+              {kit ? t('kit.result.toPreview') : t('cutter.result.toPreview')}
             </button>
+            {kit && <p className="text-xs text-slate-500">{t('kit.result.order')}</p>}
             <p className="text-xs">
               <Link to={`/${lang}/guide#helper`} className="text-accent hover:underline">
                 {t('cutter.upload.helper')}

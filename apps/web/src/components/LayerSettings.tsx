@@ -25,7 +25,7 @@ interface Props {
   cutout: CutoutProgress | null
   cutoutError: 'failed' | 'empty' | null
   // слой попал на стык между частями витрины
-  crossesSeam: boolean
+  warning: 'seam' | 'hidden' | null
   onCutoutModel: (model: CutoutModel) => void
   onChange: (patch: Partial<Layer>) => void
   onCut: (layer: ImageLayer) => void
@@ -278,7 +278,7 @@ export default function LayerSettings(props: Props) {
             <p className="text-xs text-slate-500">
               X {Math.round(layer.x)}, Y {Math.round(layer.y)} · {t('builder.layer.hint')}
             </p>
-            {props.crossesSeam && <p className="text-xs text-amber-300/80">{t('builder.layer.seam')}</p>}
+            {props.warning && <p className="text-xs text-amber-300/80">{t(`builder.layer.${props.warning}`)}</p>}
           </>
         )}
       </div>

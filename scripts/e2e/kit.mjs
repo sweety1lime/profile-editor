@@ -5,6 +5,7 @@
 //   npm run build && npm run e2e:kit
 //   npm run e2e:kit -- --art art/maomao.png
 //   npm run e2e:kit -- --gif
+//   npm run e2e:kit -- --builder
 //
 // Скриншоты каждого шага и собранный архив складываются в --out.
 
@@ -21,13 +22,15 @@ function parseArgs(argv) {
     art: null,
     // гифка вместо картинки: комплект собирается анимированным
     gif: false,
+    // тот же комплект, но собранный слоями в конструкторе
+    builder: false,
     out: new URL('e2e-out/kit/', ROOT).pathname.slice(1),
     base: null,
     port: 4180,
   }
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i].replace(/^--/, '')
-    if (key === 'gif') options.gif = true
+    if (key === 'gif' || key === 'builder') options[key] = true
     else if (key in options) options[key] = argv[++i]
     else throw new Error(`не знаю такой ключ: ${argv[i]}`)
   }
@@ -168,31 +171,52 @@ const setRange = (locator, value) =>
 const heights = { artwork: 260, featured: 220, workshop: 119 }
 
 try {
-  say('открываю комплект')
-  await page.goto(`${server.base}/ru/kit`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  check(await page.getByRole('heading', { name: 'Комплект на весь профиль' }).isVisible(), 'страница открылась')
+  if (options.builder) {
+    say('открываю конструктор')
+    await page.goto(`${server.base}/ru/builder`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.locator('input[type=file][accept="image/*,video/*"]').setInputFiles(art)
+    await page.getByRole('button', { name: 'По ширине' }).waitFor({ timeout: 90000 })
+    check(true, 'фон загрузился')
 
-  await page.locator('input[type=file][accept="image/*,video/*"]').setInputFiles(art)
-  await page.locator('[data-kit-canvas]').waitFor({ timeout: 60000 })
-  await page.waitForTimeout(600)
-  await shot('01-комплект')
-  check(true, 'арт лёг на страницу профиля')
+    await page.getByRole('button', { name: 'Весь профиль' }).click()
+    await page.waitForTimeout(600)
+    const rows = page.locator('[data-showcases] li')
+    check((await rows.count()) === 3, 'холст стал комплектом из трёх витрин')
+    await shot('01-конструктор')
 
-  const rows = page.locator('[data-showcases] li')
-  check((await rows.count()) === 3, 'в комплекте три витрины по умолчанию')
+    say('кладу надпись на холст во весь профиль')
+    await page.getByRole('button', { name: '+ Текст' }).click()
+    await page.waitForTimeout(400)
+    check(await page.getByLabel('Текст').isVisible(), 'слой добавился на общий холст')
+    await shot('02-слой')
+  } else {
+    say('открываю комплект')
+    await page.goto(`${server.base}/ru/kit`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    check(await page.getByRole('heading', { name: 'Комплект на весь профиль' }).isVisible(), 'страница открылась')
 
-  say('меняю высоту средней витрины')
-  const before = await page.locator('[data-kit-canvas]').screenshot()
-  await setRange(rows.nth(1).locator('input[type=range]'), 320)
-  await page.waitForTimeout(500)
-  const after = await page.locator('[data-kit-canvas]').screenshot()
-  check(!before.equals(after), 'высота витрины двигает всю стопку')
-  heights.featured = 320
-  await shot('02-высота')
+    await page.locator('input[type=file][accept="image/*,video/*"]').setInputFiles(art)
+    await page.locator('[data-kit-canvas]').waitFor({ timeout: 60000 })
+    await page.waitForTimeout(600)
+    await shot('01-комплект')
+    check(true, 'арт лёг на страницу профиля')
+
+    const rows = page.locator('[data-showcases] li')
+    check((await rows.count()) === 3, 'в комплекте три витрины по умолчанию')
+
+    say('меняю высоту средней витрины')
+    const before = await page.locator('[data-kit-canvas]').screenshot()
+    await setRange(rows.nth(1).locator('input[type=range]'), 320)
+    await page.waitForTimeout(500)
+    const after = await page.locator('[data-kit-canvas]').screenshot()
+    check(!before.equals(after), 'высота витрины двигает всю стопку')
+    heights.featured = 320
+    await shot('02-высота')
+  }
 
   say('собираю архив')
   const download = page.waitForEvent('download', { timeout: 300000 })
   await page.getByRole('button', { name: options.gif ? 'Собрать комплект из гифок' : 'Собрать комплект' }).click()
+  // в конструкторе архив зовётся так же, как и на странице комплекта
   const zipPath = `${options.out}/kit.zip`
   await (await download).saveAs(zipPath)
   check(true, 'архив скачался')

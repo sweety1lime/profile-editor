@@ -19,6 +19,7 @@ const project = (over: Partial<ProjectData> = {}): ProjectData => ({
   name: 'Работа',
   updatedAt: 1,
   kind: 'artwork',
+  kit: null,
   height: 700,
   frame: null,
   durationMs: 2000,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SHOWCASES, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
+import { SHOWCASES, hasCounter, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
 import ProfileReplica, { type ReplicaBackground } from '../components/ProfileReplica'
 import ScaledBox from '../components/ScaledBox'
 import { showcaseStore, useShowcaseStore } from '../lib/showcaseStore'
@@ -74,7 +74,12 @@ export default function Preview() {
 
   const replicaShowcases = useMemo(() => {
     let i = 0
-    return showcases.map((s) => ({ id: s.id, kind: s.kind, urls: s.files.map(() => urls[i++] ?? '') }))
+    return showcases.map((s) => ({
+      id: s.id,
+      kind: s.kind,
+      urls: s.files.map(() => urls[i++] ?? ''),
+      counter: s.counter,
+    }))
   }, [showcases, urls])
 
   const storeBackground: ReplicaBackground | null =
@@ -136,6 +141,8 @@ export default function Preview() {
       screenshot: t('preview.replica.screenshot'),
       workshop: t('preview.replica.workshop'),
     },
+    workshopOwner: t('preview.replica.workshopOwner', { name }),
+    counter: t('preview.replica.counter'),
   }
 
   return (
@@ -263,6 +270,17 @@ export default function Preview() {
                   {t(`cutter.kind.${s.kind}`)}
                   <span className="ml-2 text-xs text-slate-500">{t('preview.showcases.files', { count: s.files.length })}</span>
                 </span>
+                {hasCounter(s.kind) && (
+                  <button
+                    type="button"
+                    title={t('preview.showcases.counterHint')}
+                    aria-pressed={s.counter !== false}
+                    onClick={() => showcaseStore.setCounter(s.id, s.counter === false)}
+                    className={chipClass(s.counter !== false)}
+                  >
+                    +N
+                  </button>
+                )}
                 <button
                   type="button"
                   title={t('preview.showcases.up')}

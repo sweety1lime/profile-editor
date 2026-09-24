@@ -49,7 +49,7 @@ mkdirSync(options.out, { recursive: true })
 
 const KIND_LABELS = { artwork: 'Иллюстрации', featured: 'Избранная', screenshot: 'Скриншоты', workshop: 'Мастерская' }
 const EFFECT_LABELS = { snow: 'Снег', rain: 'Дождь', sakura: 'Сакура', embers: 'Искры', stars: 'Звёзды' }
-const SCENE_WIDTH = { artwork: 615, featured: 630, screenshot: 615, workshop: 612.4 }
+const SCENE_WIDTH = { artwork: 615, featured: 630, screenshot: 615, workshop: 628 }
 
 const failures = []
 const say = (m) => console.log(m)

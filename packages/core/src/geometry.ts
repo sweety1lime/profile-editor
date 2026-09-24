@@ -1,5 +1,5 @@
 // Размеры витрин в пикселях, как они выглядят на странице профиля.
-// Цифры из profilev2.css. Мастерскую ещё надо сверить на живом профиле.
+// Сверено замером живых профилей, см. layout.ts
 
 export type ShowcaseKind = 'artwork' | 'featured' | 'screenshot' | 'workshop'
 
@@ -22,8 +22,8 @@ const artworkSlices: Slice[] = [
   { id: 'side', x: 515, width: 100 },
 ]
 
-// 616 px внутренней ширины делятся на 5 колонок, у картинки по 2 px отступа с каждой стороны
-const WORKSHOP_COLUMN = 123.2
+// 632 px внутренней ширины делятся на 5 колонок, у картинки по 2 px отступа с каждой стороны
+const WORKSHOP_COLUMN = 126.4
 const WORKSHOP_MARGIN = 2
 
 const round1 = (n: number) => Math.round(n * 10) / 10
@@ -43,6 +43,10 @@ export const SHOWCASES: Record<ShowcaseKind, Showcase> = {
     })),
   },
 }
+
+// У иллюстраций и скриншотов справа колонка, под которой Steam ставит плашку «+N»,
+// когда работ больше, чем влезло в витрину
+export const hasCounter = (kind: ShowcaseKind) => kind === 'artwork' || kind === 'screenshot'
 
 // Между частями витрины в профиле остаётся зазор: всё, что на него попало, окажется разрезанным.
 // У избранной иллюстрации часть одна, поэтому зазоров нет вовсе

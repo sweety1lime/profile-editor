@@ -10,7 +10,7 @@ describe('sliceRects', () => {
   })
 
   it('exports workshop parts 150px wide and keeps the aspect ratio', () => {
-    const rects = sliceRects('workshop', { x: 0, y: 0, scale: 1, height: 119.2 })
+    const rects = sliceRects('workshop', { x: 0, y: 0, scale: 1, height: 122.4 })
     expect(rects).toHaveLength(5)
     for (const r of rects) {
       expect(r.outWidth).toBe(150)
@@ -29,7 +29,7 @@ describe('sliceFileName', () => {
 describe('fitFrame', () => {
   it('puts a profile background where the showcase sits on the page', () => {
     const { x, y } = PROFILE_OFFSET.artwork
-    expect(fitFrame('artwork', 1920, 1080)).toEqual({ x, y, scale: 1, height: 1080 - y })
+    expect(fitFrame('artwork', 1920, 1080)).toEqual({ x, y, scale: 1, height: Math.min(1080 - y, 800) })
   })
 
   it('fits any other image by width', () => {

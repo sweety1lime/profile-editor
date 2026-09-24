@@ -178,7 +178,8 @@
       "files": "files: {{count}}",
       "up": "Up",
       "down": "Down",
-      "remove": "Remove"
+      "remove": "Remove",
+      "counterHint": "The “+N” tile under the right column: Steam shows it when you have more works than fit into the showcase"
     },
     "view": {
       "fit": "Fit",
@@ -190,7 +191,9 @@
       "artwork": "Artwork Showcase",
       "featured": "Featured Artwork",
       "screenshot": "Screenshot Showcase",
-      "workshop": "Workshop Showcase"
+      "workshop": "Workshop Showcase",
+      "workshopOwner": "{{name}}'s Workshop",
+      "counter": "+ more"
     }
   },
   "builder": {

@@ -9,6 +9,8 @@ export interface ShowcaseDraft {
   id: string
   kind: ShowcaseKind
   files: ExportedFile[]
+  // плашка «+N» под правой колонкой, не задано — есть
+  counter?: boolean
 }
 
 export interface BackgroundDraft {
@@ -38,8 +40,11 @@ function update(next: Partial<State>) {
 }
 
 export const showcaseStore = {
-  addShowcase(kind: ShowcaseKind, files: ExportedFile[]) {
-    update({ showcases: [...state.showcases, { id: crypto.randomUUID(), kind, files }] })
+  addShowcase(kind: ShowcaseKind, files: ExportedFile[], options: { counter?: boolean } = {}) {
+    update({ showcases: [...state.showcases, { id: crypto.randomUUID(), kind, files, counter: options.counter }] })
+  },
+  setCounter(id: string, counter: boolean) {
+    update({ showcases: state.showcases.map((s) => (s.id === id ? { ...s, counter } : s)) })
   },
   removeShowcase(id: string) {
     update({ showcases: state.showcases.filter((s) => s.id !== id) })

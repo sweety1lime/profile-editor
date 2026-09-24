@@ -10,12 +10,14 @@ import {
   fitSceneFrame,
   hasAnimation,
   hiddenBetweenSlots,
+  isCut,
   isProfileBackground,
   kitBox,
   kitItem,
   layerBounds,
   moveLayer,
   poseAt,
+  showcaseBlockHeight,
   showcaseBox,
   type Frame,
   type ImageLayer,
@@ -470,9 +472,15 @@ export default function Builder() {
 
   function sendToPreview() {
     if (!exporter.groups) return
-    for (const group of exporter.groups) {
-      const counter = kit?.find((item) => item.id === group.id)?.counter
-      showcaseStore.addShowcase(group.kind, group.files, { counter })
+    const groups = exporter.groups
+    if (!kit) groups.forEach((group) => showcaseStore.addShowcase(group.kind, group.files))
+    for (const item of kit ?? []) {
+      if (!isCut(item.kind)) {
+        showcaseStore.addOther(showcaseBlockHeight(item.kind, item.height))
+        continue
+      }
+      const group = groups.find((g) => g.id === item.id)
+      if (group) showcaseStore.addShowcase(group.kind, group.files, { counter: item.counter })
     }
     if (source && isProfileBackground(source.width)) {
       showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })

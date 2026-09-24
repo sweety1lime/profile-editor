@@ -51,7 +51,7 @@ export function useKitExport({ source, items, placement, timeline, format, hex, 
       setGroups(done)
       setAvatarFile(face)
       const files = face ? [...groupFiles(done), face] : groupFiles(done)
-      const readme = uploadReadme(t, items.map((item) => item.kind), { avatar: !!face })
+      const readme = uploadReadme(t, items, { avatar: !!face })
       download(await buildZip(files, readme), 'kit.zip')
     } catch (err) {
       setError(err instanceof TooBigError ? 'animTooBig' : 'failed')

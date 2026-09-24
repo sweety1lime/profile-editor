@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { PROFILE_LAYOUT as L, SHOWCASES, type ShowcaseKind } from '@profile-editor/core'
+import { PROFILE_LAYOUT as L, SHOWCASES, type KitItemKind, type ShowcaseKind } from '@profile-editor/core'
 import { THEMES, type ThemeName } from '../lib/themes'
 
 export interface ReplicaProfile {
@@ -12,8 +12,10 @@ export interface ReplicaProfile {
 
 export interface ReplicaShowcase {
   id: string
-  kind: ShowcaseKind
+  kind: KitItemKind
   urls: string[]
+  // у другой витрины — высота всего блока
+  height?: number
   // плашка «+N» под правой колонкой иллюстраций и скриншотов, не задано — есть
   counter?: boolean
 }
@@ -30,6 +32,7 @@ export interface ReplicaLabels {
   // строка с автором над мастерской и надпись на плашке «+N»
   workshopOwner: string
   counter: string
+  other: string
 }
 
 interface Props {
@@ -70,7 +73,7 @@ const levelColor = (level: number) => LEVEL_COLORS[Math.floor((level % 100) / 10
 
 // Витрины повторяют живую страницу, см. layout.ts: у иллюстраций и избранной нет подложки,
 // у мастерской снизу строка счётчиков, у иллюстраций и скриншотов справа плашка «+N»
-function ShowcaseBody({ showcase, labels }: { showcase: ReplicaShowcase; labels: ReplicaLabels }) {
+function ShowcaseBody({ showcase, labels }: { showcase: ReplicaShowcase & { kind: ShowcaseKind }; labels: ReplicaLabels }) {
   const { kind, urls } = showcase
   if (kind === 'featured') {
     return (
@@ -273,6 +276,26 @@ export default function ProfileReplica({ width, fullWidth, theme, profile, backg
           >
             <div style={{ width: L.leftWidth, flexShrink: 0 }}>
               {showcases.map((s) => {
+                if (s.kind === 'other') {
+                  return (
+                    <div
+                      key={s.id}
+                      data-showcase="other"
+                      style={{
+                        height: s.height ?? 0,
+                        marginBottom: L.showcaseGap,
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        borderRadius: 3,
+                        padding: '10px 12px',
+                        fontSize: 14,
+                        color: '#8f98a0',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {labels.other}
+                    </div>
+                  )
+                }
                 // у иллюстраций и избранной Steam заголовок прячет
                 const titled = s.kind === 'screenshot' || s.kind === 'workshop'
                 return (
@@ -314,7 +337,7 @@ export default function ProfileReplica({ width, fullWidth, theme, profile, backg
                       </div>
                     )}
                     <div style={{ padding: titled ? '20px 10px 11px' : '15px 10px 11px', borderRadius: 5, overflow: 'hidden' }}>
-                      <ShowcaseBody showcase={s} labels={labels} />
+                      <ShowcaseBody showcase={{ ...s, kind: s.kind }} labels={labels} />
                     </div>
                   </div>
                 )

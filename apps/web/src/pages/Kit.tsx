@@ -11,12 +11,16 @@ import {
   defaultAvatarCrop,
   encodePalette,
   fitKit,
+  isCut,
   isProfileBackground,
+  kitBlocks,
   kitItem,
   kitSlots,
+  showcaseBlockHeight,
   nearestFps,
   type AvatarCrop,
   type KitItem,
+  type KitItemKind,
   type KitPlacement,
   type ShowcaseKind,
 } from '@profile-editor/core'
@@ -69,6 +73,7 @@ export default function Kit() {
   const generation = useRef(0)
 
   const slots = useMemo(() => kitSlots(items), [items])
+  const blocks = useMemo(() => kitBlocks(items), [items])
   const timeline = clip ? buildTimeline(clip.start, clip.length, clip.fps) : null
   // у гифки и видео аватар режем из первого кадра: свой анимированный Steam не примет
   const poster = source ? (source.type === 'still' ? source.image : source.poster) : null
@@ -203,7 +208,7 @@ export default function Kit() {
   }
 
   // мастерская пережимает гифки сильнее всего, для неё патч нужен почти всегда
-  function onAddShowcase(kind: ShowcaseKind) {
+  function onAddShowcase(kind: KitItemKind) {
     if (kind === 'workshop') setHex(true)
   }
 
@@ -238,9 +243,14 @@ export default function Kit() {
   // Отдаём весь комплект в превью тем же порядком, каким он стоит на странице профиля
   function sendToPreview() {
     if (!exporter.groups || !source) return
-    for (const group of exporter.groups) {
-      const counter = items.find((item) => item.id === group.id)?.counter
-      showcaseStore.addShowcase(group.kind, group.files, { counter })
+    const groups = exporter.groups
+    for (const item of items) {
+      if (!isCut(item.kind)) {
+        showcaseStore.addOther(showcaseBlockHeight(item.kind, item.height))
+        continue
+      }
+      const group = groups.find((g) => g.id === item.id)
+      if (group) showcaseStore.addShowcase(group.kind, group.files, { counter: item.counter })
     }
     const face = exporter.avatarFile
     if (face) showcaseStore.tryOn({ avatarFile: new File([face.blob], face.name, { type: face.blob.type }) })
@@ -538,8 +548,10 @@ export default function Kit() {
             imageWidth={source.width}
             imageHeight={source.height}
             slots={slots}
+            blocks={blocks}
             placement={placement}
             labels={labels}
+            otherLabel={t('kit.other')}
             onChange={changePlacement}
           />
         ) : (

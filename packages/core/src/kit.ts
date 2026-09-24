@@ -6,10 +6,19 @@ import { PROFILE_COLUMN_X, PROFILE_FIRST_SHOWCASE_Y, PROFILE_LAYOUT, SHOWCASE_IN
 // под другом. Всё считается в пикселях фона профиля шириной 1920 — в тех же, что и PROFILE_OFFSET,
 // поэтому картинка идёт через весь профиль без стыков и швов
 
+// Витрина, которую комплект не режет: информационная, с играми, с достижениями. В профиле она
+// стоит между витринами комплекта и сдвигает всё, что ниже, поэтому её высоту надо знать
+export const OTHER_SHOWCASE = 'other'
+
+export type KitItemKind = ShowcaseKind | typeof OTHER_SHOWCASE
+
+// Режем ли эту витрину из арта
+export const isCut = (kind: KitItemKind): kind is ShowcaseKind => kind !== OTHER_SHOWCASE
+
 export interface KitItem {
   id: string
-  kind: ShowcaseKind
-  // высота картинки витрины в пикселях профиля
+  kind: KitItemKind
+  // высота картинки витрины в пикселях профиля, у другой витрины — высота всего её блока
   height: number
   // есть ли под правой колонкой плашка «+N», см. hasCounter; не задано — есть
   counter?: boolean
@@ -35,12 +44,33 @@ const BLOCK_PADDING_BOTTOM = 11
 const COUNTER_COLUMN_BELOW = 80
 
 // Высота всего блока витрины на странице: шапка, отступы и сама картинка
-export function showcaseBlockHeight(kind: ShowcaseKind, height: number, counter = true): number {
+export function showcaseBlockHeight(kind: KitItemKind, height: number, counter = true): number {
+  if (!isCut(kind)) return height
   const below = counter && hasCounter(kind) ? Math.max(BELOW_IMAGE[kind], COUNTER_COLUMN_BELOW) : BELOW_IMAGE[kind]
   return SHOWCASE_INNER[kind].y + height + below + BLOCK_PADDING_BOTTOM
 }
 
+// Блок витрины на странице: и тех, что режем, и других — они тоже занимают место
+export interface KitBlock {
+  id: string
+  kind: KitItemKind
+  // верх блока на фоне профиля
+  top: number
+  height: number
+}
+
+export function kitBlocks(items: KitItem[]): KitBlock[] {
+  let top = PROFILE_FIRST_SHOWCASE_Y
+  return items.map((item) => {
+    const height = showcaseBlockHeight(item.kind, item.height, item.counter ?? true)
+    const block = { id: item.id, kind: item.kind, top, height }
+    top += height + PROFILE_LAYOUT.showcaseGap
+    return block
+  })
+}
+
 export interface KitSlot extends KitItem {
+  kind: ShowcaseKind
   // верх блока витрины на фоне профиля
   blockTop: number
   blockHeight: number
@@ -51,21 +81,25 @@ export interface KitSlot extends KitItem {
   width: number
 }
 
-// Где окажется каждая витрина, если сложить их в левую колонку в этом порядке
+// Где окажется каждая витрина комплекта, если сложить все витрины в левую колонку в этом
+// порядке. Другие витрины окон не дают, но сдвигают всё, что под ними
 export function kitSlots(items: KitItem[]): KitSlot[] {
-  let top = PROFILE_FIRST_SHOWCASE_Y
-  return items.map((item) => {
-    const blockHeight = showcaseBlockHeight(item.kind, item.height, item.counter ?? true)
-    const slot: KitSlot = {
-      ...item,
-      blockTop: top,
-      blockHeight,
-      x: PROFILE_COLUMN_X + SHOWCASE_INNER[item.kind].x,
-      y: top + SHOWCASE_INNER[item.kind].y,
-      width: SHOWCASES[item.kind].width,
-    }
-    top += blockHeight + PROFILE_LAYOUT.showcaseGap
-    return slot
+  const blocks = kitBlocks(items)
+  return items.flatMap((item, index): KitSlot[] => {
+    const { kind } = item
+    if (!isCut(kind)) return []
+    const block = blocks[index]!
+    return [
+      {
+        ...item,
+        kind,
+        blockTop: block.top,
+        blockHeight: block.height,
+        x: PROFILE_COLUMN_X + SHOWCASE_INNER[kind].x,
+        y: block.top + SHOWCASE_INNER[kind].y,
+        width: SHOWCASES[kind].width,
+      },
+    ]
   })
 }
 
@@ -97,9 +131,9 @@ export function kitSpan(slots: KitSlot[]): KitRect | null {
 }
 
 // Какой высоты нужен фон профиля, чтобы под ним поместился весь комплект
-export function kitBackgroundHeight(slots: KitSlot[]): number {
-  const last = slots[slots.length - 1]
-  const bottom = last ? last.blockTop + last.blockHeight : PROFILE_FIRST_SHOWCASE_Y
+export function kitBackgroundHeight(blocks: KitBlock[]): number {
+  const last = blocks[blocks.length - 1]
+  const bottom = last ? last.top + last.height : PROFILE_FIRST_SHOWCASE_Y
   return bottom + PROFILE_LAYOUT.columnsPadding
 }
 
@@ -151,16 +185,18 @@ export function zoomKit(placement: KitPlacement, nextScale: number, center: { x:
 }
 
 // Высоты, с которых удобно начинать: у мастерской части квадратные, у избранной — широкая полоса
-export const DEFAULT_SHOWCASE_HEIGHT: Record<ShowcaseKind, number> = {
+export const DEFAULT_SHOWCASE_HEIGHT: Record<KitItemKind, number> = {
   artwork: 260,
   screenshot: 260,
   featured: 220,
   workshop: 122,
+  // пустая информационная витрина с парой строк текста
+  other: 150,
 }
 
 export const DEFAULT_KIT: ShowcaseKind[] = ['artwork', 'featured', 'workshop']
 
-export const kitItem = (kind: ShowcaseKind, height = DEFAULT_SHOWCASE_HEIGHT[kind]): KitItem => ({
+export const kitItem = (kind: KitItemKind, height = DEFAULT_SHOWCASE_HEIGHT[kind]): KitItem => ({
   id: crypto.randomUUID(),
   kind,
   height: clampHeight(height),

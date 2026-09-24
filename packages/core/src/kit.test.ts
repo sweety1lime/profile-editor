@@ -5,6 +5,7 @@ import { PROFILE_FIRST_SHOWCASE_Y, PROFILE_LAYOUT, PROFILE_OFFSET } from './layo
 import {
   fitKit,
   kitBackgroundHeight,
+  kitBlocks,
   kitFrame,
   kitSliceRects,
   kitSlots,
@@ -51,6 +52,13 @@ describe('kitSlots', () => {
     expect(withCounter!.blockTop - without!.blockTop).toBe(56)
   })
 
+  it('leaves room for a showcase that is not cut, without a window of its own', () => {
+    const with_ = kitSlots([item('artwork', 200), { id: 'o', kind: 'other', height: 150 }, item('featured', 100)])
+    const without = kitSlots([item('artwork', 200), item('featured', 100)])
+    expect(with_.map((slot) => slot.kind)).toEqual(['artwork', 'featured'])
+    expect(with_[1]!.blockTop - without[1]!.blockTop).toBe(150 + PROFILE_LAYOUT.showcaseGap)
+  })
+
   it('stacks the next showcase under the previous block with the page gap', () => {
     const slots = kitSlots([item('artwork', 200), item('featured', 300)])
     const [first, second] = slots
@@ -90,6 +98,13 @@ describe('kitSpan', () => {
     expect(span.y).toBe(slots[0]!.y)
     expect(span.height).toBe(slots[1]!.y + 300 - slots[0]!.y)
     expect(span.width).toBeGreaterThanOrEqual(SHOWCASES.featured.width)
+  })
+
+  it('counts a trailing other showcase into the page height', () => {
+    const blocks = kitBlocks([item('artwork', 200), { id: 'o', kind: 'other', height: 150 }])
+    expect(blocks[1]!.height).toBe(150)
+    expect(kitBackgroundHeight(blocks)).toBe(blocks[1]!.top + 150 + PROFILE_LAYOUT.columnsPadding)
+    expect(showcaseBlockHeight('other', 150)).toBe(150)
   })
 
   it('has nothing to cover when the kit is empty', () => {

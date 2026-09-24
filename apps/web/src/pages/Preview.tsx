@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SHOWCASES, hasCounter, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
+import { DEFAULT_SHOWCASE_HEIGHT, SHOWCASES, hasCounter, type ProfileData, type ShowcaseKind } from '@profile-editor/core'
 import ProfileReplica, { type ReplicaBackground } from '../components/ProfileReplica'
 import ScaledBox from '../components/ScaledBox'
 import { showcaseStore, useShowcaseStore } from '../lib/showcaseStore'
@@ -83,6 +83,7 @@ export default function Preview() {
       kind: s.kind,
       urls: s.files.map(() => urls[i++] ?? ''),
       counter: s.counter,
+      height: s.height,
     }))
   }, [showcases, urls])
 
@@ -147,6 +148,7 @@ export default function Preview() {
     },
     workshopOwner: t('preview.replica.workshopOwner', { name }),
     counter: t('preview.replica.counter'),
+    other: t('kit.other'),
   }
 
   return (
@@ -271,10 +273,22 @@ export default function Preview() {
             {showcases.map((s, i) => (
               <li key={s.id} className="flex items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-sm">
                 <span className="flex-1 text-slate-200">
-                  {t(`cutter.kind.${s.kind}`)}
-                  <span className="ml-2 text-xs text-slate-500">{t('preview.showcases.files', { count: s.files.length })}</span>
+                  {s.kind === 'other' ? t('kit.other') : t(`cutter.kind.${s.kind}`)}
+                  {s.kind === 'other' ? (
+                    <input
+                      type="number"
+                      value={s.height ?? 0}
+                      min={10}
+                      max={4000}
+                      aria-label={t('kit.showcases.blockHeight')}
+                      onChange={(e) => showcaseStore.setHeight(s.id, Math.max(10, Number(e.target.value) || 0))}
+                      className="ml-2 w-16 rounded border border-line bg-ink px-2 py-0.5 text-right text-xs text-white"
+                    />
+                  ) : (
+                    <span className="ml-2 text-xs text-slate-500">{t('preview.showcases.files', { count: s.files.length })}</span>
+                  )}
                 </span>
-                {hasCounter(s.kind) && (
+                {s.kind !== 'other' && hasCounter(s.kind) && (
                   <button
                     type="button"
                     title={t('preview.showcases.counterHint')}
@@ -323,6 +337,13 @@ export default function Preview() {
           </div>
           <button type="button" onClick={() => filesInput.current?.click()} className={`${secondaryButton} mt-2 w-full`}>
             {t('preview.showcases.add')}
+          </button>
+          <button
+            type="button"
+            onClick={() => showcaseStore.addOther(DEFAULT_SHOWCASE_HEIGHT.other)}
+            className={`${secondaryButton} mt-2 w-full`}
+          >
+            {t('preview.showcases.addOther')}
           </button>
           <input
             ref={filesInput}

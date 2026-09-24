@@ -1,17 +1,28 @@
-import { UPLOAD_PAGE, UPLOAD_SNIPPETS, kitFolder, type ShowcaseKind } from '@profile-editor/core'
+import { UPLOAD_PAGE, UPLOAD_SNIPPETS, isCut, kitFolder, type KitItemKind } from '@profile-editor/core'
 
 // Записка, которая едет в архиве рядом с картинками. Для одной витрины это просто порядок
 // загрузки, для комплекта — ещё и какая папка какой витриной становится
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
-export function uploadReadme(t: Translate, kinds: ShowcaseKind[], options: { avatar?: boolean } = {}): string {
+// Витрина по порядку на странице. У других витрин важна только высота
+export interface ReadmeEntry {
+  kind: KitItemKind
+  height: number
+}
+
+export function uploadReadme(t: Translate, entries: ReadmeEntry[], options: { avatar?: boolean } = {}): string {
+  const kinds = entries.map((entry) => entry.kind).filter(isCut)
   const lines: string[] = []
-  if (kinds.length > 1) {
+  if (entries.length > 1) {
     lines.push(t('kit.readme.title'), '')
-    kinds.forEach((kind, index) => {
-      lines.push(t('kit.readme.folder', { folder: kitFolder(index, kind), kind: t(`cutter.kind.${kind}`) }))
-    })
+    let folder = 0
+    for (const { kind, height } of entries) {
+      if (!isCut(kind)) lines.push(t('kit.readme.other', { height }))
+      // папки в архиве появляются, только когда своих витрин больше одной
+      else if (kinds.length > 1) lines.push(t('kit.readme.folder', { folder: kitFolder(folder++, kind), kind: t(`cutter.kind.${kind}`) }))
+      else lines.push(t(`cutter.kind.${kind}`))
+    }
     lines.push('', t('kit.readme.order'), '')
   } else {
     lines.push(t('cutter.readme', { kind: t(`cutter.kind.${kinds[0] ?? 'artwork'}`) }), '')

@@ -149,6 +149,7 @@
     "title": "Whole-profile kit",
     "lead": "One artwork for every showcase at once: lay it out on the profile page and get the parts for each showcase.",
     "matchBackground": "Find a background to match",
+    "other": "Other showcase",
     "empty": {
       "title": "Drop the artwork here",
       "text": "An image, a GIF or a video will do. Then you pick the showcases and see how the art falls on the profile page."
@@ -157,12 +158,14 @@
       "title": "Showcases",
       "empty": "No showcases yet, add at least one.",
       "height": "Height",
+      "blockHeight": "Block height",
       "counter": "There is a “+N” tile under the right column",
       "up": "Move up",
       "down": "Move down",
       "remove": "Remove showcase",
       "hint": "The order and the heights here have to match the profile, otherwise the art falls apart. Showcases are reordered in the profile settings.",
-      "counterHint": "Steam puts the “+N” tile under the right column when you have more works than fit into the showcase — almost always. Without it the showcase is 56 px shorter and everything below moves up. Once a work gets ratings or comments, a showcase without the tile grows by another 24 px."
+      "counterHint": "Steam puts the “+N” tile under the right column when you have more works than fit into the showcase — almost always. Without it the showcase is 56 px shorter and everything below moves up. Once a work gets ratings or comments, a showcase without the tile grows by another 24 px.",
+      "otherHint": "A showcase that is not part of the kit: custom info, games, achievements. Nothing is cut for it, but everything below moves down by its height — enter the height of the whole block with its header."
     },
     "place": {
       "title": "Artwork on the page",
@@ -196,6 +199,7 @@
     "readme": {
       "title": "Showcase kit for a Steam profile",
       "folder": "{{folder}} — {{kind}}",
+      "other": "— another showcase sits here in the profile, its block is {{height}} px tall",
       "order": "In the profile settings the showcases have to be arranged in this order, otherwise the picture will not line up.",
       "avatar": "avatar.jpg is the avatar. It is uploaded separately: Edit Profile → Avatar → upload your own."
     },
@@ -238,6 +242,7 @@
       "title": "Showcases",
       "empty": "Nothing here yet. Cut something and press \"Show on profile\", or add ready files.",
       "add": "Add files",
+      "addOther": "Add another showcase",
       "files": "files: {{count}}",
       "up": "Up",
       "down": "Down",

@@ -1,19 +1,20 @@
 import { useTranslation } from 'react-i18next'
-import { clampHeight, hasCounter, kitItem, type KitItem, type ShowcaseKind } from '@profile-editor/core'
+import { OTHER_SHOWCASE, clampHeight, hasCounter, isCut, kitItem, type KitItem, type KitItemKind } from '@profile-editor/core'
 import { chipClass } from './controls'
 
-const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
+const KINDS: KitItemKind[] = ['artwork', 'featured', 'screenshot', 'workshop', OTHER_SHOWCASE]
 
 interface Props {
   items: KitItem[]
   onChange: (items: KitItem[]) => void
   // чтобы страница успела подстроить своё под новую витрину
-  onAdd?: (kind: ShowcaseKind) => void
+  onAdd?: (kind: KitItemKind) => void
 }
 
 // Список витрин комплекта: порядок и высоты должны совпадать с профилем, иначе арт разъедется
 export default function ShowcaseList({ items, onChange, onAdd }: Props) {
   const { t } = useTranslation()
+  const label = (kind: KitItemKind) => (isCut(kind) ? t(`cutter.kind.${kind}`) : t('kit.other'))
 
   function setHeight(id: string, height: number) {
     onChange(items.map((item) => (item.id === id ? { ...item, height: clampHeight(height) } : item)))
@@ -32,7 +33,7 @@ export default function ShowcaseList({ items, onChange, onAdd }: Props) {
     onChange(next)
   }
 
-  function add(kind: ShowcaseKind) {
+  function add(kind: KitItemKind) {
     onChange([...items, kitItem(kind)])
     onAdd?.(kind)
   }
@@ -45,7 +46,7 @@ export default function ShowcaseList({ items, onChange, onAdd }: Props) {
           <li key={item.id} className="rounded-lg border border-line bg-panel p-3">
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500">{index + 1}</span>
-              <span className="flex-1 text-sm text-white">{t(`cutter.kind.${item.kind}`)}</span>
+              <span className="flex-1 text-sm text-white">{label(item.kind)}</span>
               <button
                 type="button"
                 onClick={() => move(item.id, -1)}
@@ -77,7 +78,7 @@ export default function ShowcaseList({ items, onChange, onAdd }: Props) {
               </button>
             </div>
             <label className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-              <span>{t('kit.showcases.height')}</span>
+              <span>{t(isCut(item.kind) ? 'kit.showcases.height' : 'kit.showcases.blockHeight')}</span>
               <input
                 type="range"
                 min={50}
@@ -95,7 +96,8 @@ export default function ShowcaseList({ items, onChange, onAdd }: Props) {
                 className="w-16 rounded border border-line bg-ink px-2 py-0.5 text-right text-white"
               />
             </label>
-            {hasCounter(item.kind) && (
+            {!isCut(item.kind) && <p className="mt-2 text-xs text-slate-500">{t('kit.showcases.otherHint')}</p>}
+            {isCut(item.kind) && hasCounter(item.kind) && (
               <label className="mt-2 flex items-center gap-2 text-xs text-slate-400">
                 <input
                   type="checkbox"
@@ -112,7 +114,7 @@ export default function ShowcaseList({ items, onChange, onAdd }: Props) {
       <div className="mt-3 flex flex-wrap gap-1">
         {KINDS.map((kind) => (
           <button key={kind} type="button" onClick={() => add(kind)} className={chipClass(false)}>
-            + {t(`cutter.kind.${kind}`)}
+            + {label(kind)}
           </button>
         ))}
       </div>

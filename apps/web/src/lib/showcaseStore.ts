@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { ShowcaseKind } from '@profile-editor/core'
+import type { KitItemKind, ShowcaseKind } from '@profile-editor/core'
 import type { ExportedFile } from './exportSlices'
 
 // Общее место, через которое нарезчик и каталог отдают данные в превью профиля.
@@ -7,8 +7,10 @@ import type { ExportedFile } from './exportSlices'
 
 export interface ShowcaseDraft {
   id: string
-  kind: ShowcaseKind
+  kind: KitItemKind
   files: ExportedFile[]
+  // у другой витрины — высота всего блока, картинок у неё нет
+  height?: number
   // плашка «+N» под правой колонкой, не задано — есть
   counter?: boolean
 }
@@ -44,6 +46,13 @@ function update(next: Partial<State>) {
 export const showcaseStore = {
   addShowcase(kind: ShowcaseKind, files: ExportedFile[], options: { counter?: boolean } = {}) {
     update({ showcases: [...state.showcases, { id: crypto.randomUUID(), kind, files, counter: options.counter }] })
+  },
+  // Другая витрина между витринами комплекта: своих картинок у неё нет, но она сдвигает всё ниже
+  addOther(height: number) {
+    update({ showcases: [...state.showcases, { id: crypto.randomUUID(), kind: 'other', files: [], height }] })
+  },
+  setHeight(id: string, height: number) {
+    update({ showcases: state.showcases.map((s) => (s.id === id ? { ...s, height } : s)) })
   },
   setCounter(id: string, counter: boolean) {
     update({ showcases: state.showcases.map((s) => (s.id === id ? { ...s, counter } : s)) })

@@ -107,6 +107,8 @@ function checkStills(files, heights) {
     if (size && (size[0] !== width || size[1] !== height)) say(`    получили ${size[0]}×${size[1]}`)
   }
   check('readme.txt' in files, 'в архиве есть readme с порядком загрузки')
+  const readme = Buffer.from(files['readme.txt'] ?? []).toString('utf8')
+  check(readme.includes('150 px'), 'записка напоминает про другую витрину и её высоту')
 }
 
 // Главное обещание комплекта: каждая часть в превью встаёт ровно на то место фона, откуда её
@@ -161,6 +163,17 @@ page.on('console', (m) => {
 
 const shot = (name) => page.screenshot({ path: `${options.out}/${name}.png` })
 
+// Другая витрина между иллюстрациями и избранной: она сдвигает всё ниже, и нарезка с превью
+// должны это учесть одинаково
+async function insertOther() {
+  say('вставляю другую витрину между иллюстрациями и избранной')
+  const rows = page.locator('[data-showcases] li')
+  await page.getByRole('button', { name: '+ Другая витрина' }).click()
+  await rows.last().getByRole('button', { name: 'Выше' }).click()
+  await rows.nth(2).getByRole('button', { name: 'Выше' }).click()
+  check((await rows.nth(1).textContent()).includes('Другая витрина'), 'другая витрина встала второй')
+}
+
 const setRange = (locator, value) =>
   locator.evaluate((el, v) => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v)
@@ -182,6 +195,7 @@ try {
     await page.waitForTimeout(600)
     const rows = page.locator('[data-showcases] li')
     check((await rows.count()) === 3, 'холст стал комплектом из трёх витрин')
+    await insertOther()
     await shot('01-конструктор')
 
     say('кладу надпись на холст во весь профиль')
@@ -210,6 +224,7 @@ try {
     const after = await page.locator('[data-kit-canvas]').screenshot()
     check(!before.equals(after), 'высота витрины двигает всю стопку')
     heights.featured = 320
+    await insertOther()
     await shot('02-высота')
   }
 

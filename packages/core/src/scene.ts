@@ -1,7 +1,7 @@
 import { clampHeight, isProfileBackground, type Frame } from './crop'
 import { SHOWCASES, sliceGaps, type ShowcaseKind } from './geometry'
 import { PROFILE_COLUMN_X, PROFILE_FIRST_SHOWCASE_Y, PROFILE_LAYOUT, PROFILE_OFFSET } from './layout'
-import { kitSlots, type KitItem } from './kit'
+import { kitSlots, type KitItem, type KitItemKind } from './kit'
 
 // Холст, на котором собирают картинку: либо одна витрина, либо вся левая колонка профиля сразу.
 // Окна витрин лежат на холсте там же, где они стоят на странице, поэтому и одиночная витрина,
@@ -22,6 +22,8 @@ export interface SceneBox {
   // где угол холста оказывается на фоне профиля шириной 1920
   origin: { x: number; y: number }
   slots: SceneSlot[]
+  // все витрины холста по порядку, и те, что не режем: их надо не забыть поставить на место
+  showcases: { kind: KitItemKind; height: number }[]
 }
 
 export function showcaseBox(kind: ShowcaseKind, height: number): SceneBox {
@@ -30,6 +32,7 @@ export function showcaseBox(kind: ShowcaseKind, height: number): SceneBox {
     height,
     origin: PROFILE_OFFSET[kind],
     slots: [{ id: kind, kind, x: 0, y: 0, height }],
+    showcases: [{ kind, height }],
   }
 }
 
@@ -48,6 +51,7 @@ export function kitBox(items: KitItem[]): SceneBox {
       y: slot.y - PROFILE_FIRST_SHOWCASE_Y,
       height: slot.height,
     })),
+    showcases: items.map(({ kind, height }) => ({ kind, height })),
   }
 }
 

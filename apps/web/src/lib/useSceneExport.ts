@@ -59,7 +59,7 @@ export function useSceneExport(options: Options) {
       const done = await cutShowcases({ slots, still, animated: clip, format, hex, onProgress: setBusy })
       setGroups(done)
       const name = done.length > 1 ? 'kit' : (done[0]?.kind ?? 'showcase')
-      download(await buildZip(groupFiles(done), uploadReadme(t, slots.map((slot) => slot.kind))), `${name}.zip`)
+      download(await buildZip(groupFiles(done), uploadReadme(t, box.showcases)), `${name}.zip`)
     } catch (err) {
       setError(err instanceof TooBigError ? 'animTooBig' : 'failed')
     } finally {

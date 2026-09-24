@@ -4,9 +4,11 @@ import {
   PROFILE_COLUMN_X,
   PROFILE_LAYOUT,
   SHOWCASES,
+  isCut,
   kitBackgroundHeight,
   kitSliceRects,
   zoomKit,
+  type KitBlock,
   type KitPlacement,
   type KitSlot,
   type ShowcaseKind,
@@ -17,8 +19,11 @@ interface Props {
   imageWidth: number
   imageHeight: number
   slots: KitSlot[]
+  // все витрины страницы, и другие тоже: их показываем серыми блоками
+  blocks: KitBlock[]
   placement: KitPlacement
   labels: Record<ShowcaseKind, string>
+  otherLabel: string
   onChange: (placement: KitPlacement) => void
 }
 
@@ -51,7 +56,8 @@ function partSize(kind: ShowcaseKind, height: number): string {
   return `${width}×${Math.max(1, Math.round(height * (width / slice.width)))}`
 }
 
-export default function KitCanvas({ image, imageWidth, imageHeight, slots, placement, labels, onChange }: Props) {
+export default function KitCanvas(props: Props) {
+  const { image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, onChange } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -74,7 +80,7 @@ export default function KitCanvas({ image, imageWidth, imageHeight, slots, place
     return () => observer.disconnect()
   }, [])
 
-  const pageHeight = kitBackgroundHeight(slots)
+  const pageHeight = kitBackgroundHeight(blocks)
   const artWidth = imageWidth * placement.scale
   const artHeight = imageHeight * placement.scale
   const left = Math.min(0, placement.x)
@@ -125,20 +131,31 @@ export default function KitCanvas({ image, imageWidth, imageHeight, slots, place
     ctx.fillStyle = 'rgba(6, 8, 13, 0.66)'
     ctx.fill('evenodd')
 
-    // блоки витрин целиком: шапка и отступы, которые Steam рисует поверх фона
-    ctx.strokeStyle = BLOCK_COLOR
+    // блоки витрин целиком: шапка и отступы, которые Steam рисует поверх фона. Другие витрины
+    // закрывают арт целиком, их заливаем, чтобы было видно, куда картинка не попадёт
     ctx.lineWidth = 1
-    for (const slot of slots) {
-      const block = at(PROFILE_COLUMN_X, slot.blockTop)
-      ctx.strokeRect(block.x, block.y, PROFILE_LAYOUT.leftWidth * view.scale, slot.blockHeight * view.scale)
+    ctx.font = '600 11px "Inter Variable", system-ui, sans-serif'
+    ctx.textBaseline = 'middle'
+    for (const block of blocks) {
+      const corner = at(PROFILE_COLUMN_X, block.top)
+      const w = PROFILE_LAYOUT.leftWidth * view.scale
+      const h = block.height * view.scale
+      if (!isCut(block.kind)) {
+        ctx.fillStyle = 'rgba(40, 44, 54, 0.9)'
+        ctx.fillRect(corner.x, corner.y, w, h)
+        if (h > 16) {
+          ctx.fillStyle = '#8f98a0'
+          ctx.fillText(otherLabel, corner.x + 8, corner.y + Math.min(h / 2, 14))
+        }
+      }
+      ctx.strokeStyle = BLOCK_COLOR
+      ctx.strokeRect(corner.x, corner.y, w, h)
     }
 
     ctx.strokeStyle = OUTLINE_COLOR
     ctx.lineWidth = 1.5
     for (const part of parts) ctx.strokeRect(part.x, part.y, part.w, part.h)
 
-    ctx.font = '600 11px "Inter Variable", system-ui, sans-serif'
-    ctx.textBaseline = 'middle'
     for (const slot of slots) {
       const point = at(slot.x, slot.y)
       const label = `${labels[slot.kind]} · ${partSize(slot.kind, slot.height)}`
@@ -150,7 +167,7 @@ export default function KitCanvas({ image, imageWidth, imageHeight, slots, place
         ctx.fillText(label, point.x + 5, point.y + 9)
       }
     }
-  }, [image, imageWidth, imageHeight, slots, placement, labels, size, view, pageHeight, artWidth, artHeight])
+  }, [image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, size, view, pageHeight, artWidth, artHeight])
 
   useEffect(() => {
     const canvas = canvasRef.current

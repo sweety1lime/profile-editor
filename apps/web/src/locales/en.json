@@ -171,6 +171,18 @@
       "align": "As in the profile",
       "hint": "Drag with the mouse, the wheel changes the size, arrows move by a pixel, with Shift by 10."
     },
+    "avatar": {
+      "title": "Avatar",
+      "include": "Put an avatar into the kit",
+      "size": "Square size",
+      "views": {
+        "profile": "in the profile",
+        "friends": "for friends",
+        "chat": "in chat"
+      },
+      "hint": "Drag the square, the wheel changes its size. Steam keeps the avatar at 184×184 and shrinks it for the friends list and chat — check that the face still reads at the smallest size.",
+      "animated": "Steam does not take your own animated avatar, animated ones only come from the Points Shop. So we take the first frame."
+    },
     "export": {
       "button": "Build the kit",
       "gifButton": "Build the kit as GIFs",
@@ -184,7 +196,8 @@
     "readme": {
       "title": "Showcase kit for a Steam profile",
       "folder": "{{folder}} — {{kind}}",
-      "order": "In the profile settings the showcases have to be arranged in this order, otherwise the picture will not line up."
+      "order": "In the profile settings the showcases have to be arranged in this order, otherwise the picture will not line up.",
+      "avatar": "avatar.jpg is the avatar. It is uploaded separately: Edit Profile → Avatar → upload your own."
     },
     "upload": {
       "intro": "Upload each folder on its own, like a regular showcase."

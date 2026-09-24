@@ -8,16 +8,19 @@ import {
   UPLOAD_LIMIT_BYTES,
   UPLOAD_PAGE,
   buildTimeline,
+  defaultAvatarCrop,
   encodePalette,
   fitKit,
   isProfileBackground,
   kitItem,
   kitSlots,
   nearestFps,
+  type AvatarCrop,
   type KitItem,
   type KitPlacement,
   type ShowcaseKind,
 } from '@profile-editor/core'
+import AvatarPicker from '../components/AvatarPicker'
 import KitCanvas from '../components/KitCanvas'
 import ShowcaseList from '../components/ShowcaseList'
 import { RangeRow, Section, inputClass, secondaryButton } from '../components/controls'
@@ -47,6 +50,8 @@ export default function Kit() {
   const [source, setSource] = useState<Source | null>(null)
   const [items, setItems] = useState<KitItem[]>(() => DEFAULT_KIT.map((kind) => kitItem(kind)))
   const [placement, setPlacement] = useState<KitPlacement>(IDENTITY)
+  // квадрат аватара на исходнике, null — аватар в комплект не кладём
+  const [avatar, setAvatar] = useState<AvatarCrop | null>(null)
   const [clip, setClip] = useState<Clip | null>(null)
   const [hex, setHex] = useState(false)
   const [format, setFormat] = useState<OutFormat>('png')
@@ -65,7 +70,17 @@ export default function Kit() {
 
   const slots = useMemo(() => kitSlots(items), [items])
   const timeline = clip ? buildTimeline(clip.start, clip.length, clip.fps) : null
-  const exporter = useKitExport({ source, items, placement, timeline, format, hex })
+  // у гифки и видео аватар режем из первого кадра: свой анимированный Steam не примет
+  const poster = source ? (source.type === 'still' ? source.image : source.poster) : null
+  const exporter = useKitExport({
+    source,
+    items,
+    placement,
+    timeline,
+    format,
+    hex,
+    avatar: avatar && poster ? { image: poster, crop: avatar } : null,
+  })
 
   // старый исходник освобождаем, когда пришёл новый
   useEffect(() => {
@@ -80,14 +95,14 @@ export default function Kit() {
     const gen = generation.current
     const timer = setTimeout(() => {
       if (gen !== generation.current) return
-      const session: KitSession = { name: source.name, items, placement, clip, hex, format, savedAt: Date.now() }
+      const session: KitSession = { name: source.name, items, placement, avatar, clip, hex, format, savedAt: Date.now() }
       saveQueue.current = saveQueue.current
         .then(() => kitDb.save(session, source.blob))
         .then(askPersistentStorage)
         .catch((err) => console.warn('kit save failed:', err))
     }, SAVE_DELAY)
     return () => clearTimeout(timer)
-  }, [source, items, placement, clip, hex, format])
+  }, [source, items, placement, avatar, clip, hex, format])
 
   // из каталога и нарезчика приходим со ссылкой на арт в адресе
   const [searchParams] = useSearchParams()
@@ -124,6 +139,7 @@ export default function Kit() {
         )
         setHex(session.hex)
         setFormat(session.format)
+        setAvatar(session.avatar === undefined ? defaultAvatarCrop(next.width, next.height) : session.avatar)
         setRestored(session.name)
       })
       .catch((err) => console.warn('kit restore failed:', err))
@@ -135,6 +151,7 @@ export default function Kit() {
     setSource(null)
     setItems(DEFAULT_KIT.map((kind) => kitItem(kind)))
     setPlacement(IDENTITY)
+    setAvatar(null)
     setClip(null)
     setRestored(null)
     setLink('')
@@ -152,6 +169,7 @@ export default function Kit() {
       setRestored(null)
       // фон профиля ложится на своё место один в один, любой другой арт вписываем в комплект
       setPlacement(isProfileBackground(next.width) ? IDENTITY : fitKit(next.width, next.height, slots))
+      setAvatar(defaultAvatarCrop(next.width, next.height))
       setClip(
         next.type === 'animated'
           ? { start: 0, length: Math.min(next.duration, DEFAULT_CLIP_SECONDS), fps: nearestFps(next.fps) }
@@ -189,6 +207,11 @@ export default function Kit() {
     if (kind === 'workshop') setHex(true)
   }
 
+  function changeAvatar(next: AvatarCrop | null) {
+    setAvatar(next)
+    exporter.reset()
+  }
+
   function changePlacement(next: KitPlacement) {
     setPlacement(next)
     exporter.reset()
@@ -219,13 +242,14 @@ export default function Kit() {
       const counter = items.find((item) => item.id === group.id)?.counter
       showcaseStore.addShowcase(group.kind, group.files, { counter })
     }
+    const face = exporter.avatarFile
+    if (face) showcaseStore.tryOn({ avatarFile: new File([face.blob], face.name, { type: face.blob.type }) })
     if (isProfileBackground(source.width)) {
       showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })
     }
     navigate(`/${lang}/preview`)
   }
 
-  const poster = source ? (source.type === 'still' ? source.image : source.poster) : null
   const zoom = Math.round(placement.scale * 100)
   const labels = useMemo(
     () => Object.fromEntries(KINDS.map((kind) => [kind, t(`cutter.kind.${kind}`)])) as Record<ShowcaseKind, string>,
@@ -321,6 +345,34 @@ export default function Kit() {
                 {t('kit.place.hint')}
               </p>
             </div>
+          </Section>
+        )}
+
+        {source && poster && (
+          <Section title={t('kit.avatar.title')}>
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={!!avatar}
+                onChange={(e) => changeAvatar(e.target.checked ? defaultAvatarCrop(source.width, source.height) : null)}
+                className="accent-accent"
+              />
+              {t('kit.avatar.include')}
+            </label>
+            {avatar && (
+              <div className="mt-3">
+                <AvatarPicker
+                  image={poster}
+                  imageWidth={source.width}
+                  imageHeight={source.height}
+                  crop={avatar}
+                  onChange={changeAvatar}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {t(source.type === 'animated' ? 'kit.avatar.animated' : 'kit.avatar.hint')}
+                </p>
+              </div>
+            )}
           </Section>
         )}
 
@@ -435,6 +487,17 @@ export default function Kit() {
                 {group.thinned && <p className="mt-1 text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
               </div>
             ))}
+            {exporter.avatarFile && (
+              <div>
+                <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">{t('kit.avatar.title')}</div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">{exporter.avatarFile.name}</span>
+                  <span className="text-slate-500">
+                    {t('cutter.export.size', { mb: toMegabytes(exporter.avatarFile.blob.size) })}
+                  </span>
+                </div>
+              </div>
+            )}
             {tooBig && <p className="text-sm text-red-400">{t('cutter.export.tooBig')}</p>}
             <button type="button" onClick={sendToPreview} className={`${secondaryButton} w-full`}>
               {t('kit.result.toPreview')}

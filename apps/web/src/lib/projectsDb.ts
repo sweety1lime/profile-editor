@@ -1,4 +1,4 @@
-import type { Frame, KitItem, KitPlacement, ProjectData, ShowcaseKind } from '@profile-editor/core'
+import type { AvatarCrop, Frame, KitItem, KitPlacement, ProjectData, ShowcaseKind } from '@profile-editor/core'
 import type { OutFormat } from './exportSlices'
 
 interface Clip {
@@ -161,6 +161,8 @@ export interface KitSession extends Session {
   name: string
   items: KitItem[]
   placement: KitPlacement
+  // null — аватар из комплекта убрали; у сохранённого до аватаров поля нет вовсе
+  avatar?: AvatarCrop | null
   clip: Clip | null
   hex: boolean
   format: OutFormat

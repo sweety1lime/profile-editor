@@ -14,7 +14,7 @@ import { chromium } from 'playwright'
 import { unzipSync } from 'fflate'
 // gifenc собран как CommonJS, именованных экспортов у него нет
 import gifenc from 'gifenc'
-import { ROOT, gifFrames, png, pngSize, readPixels, startServer } from './helpers.mjs'
+import { ROOT, gifFrames, jpegSize, png, pngSize, readPixels, startServer } from './helpers.mjs'
 
 function parseArgs(argv) {
   const options = {
@@ -241,6 +241,21 @@ try {
     checkStills(files, heights)
   }
 
+  // Аватар кладёт в комплект только страница комплекта: у конструктора холст — одна левая колонка
+  if (!options.builder) {
+    const face = files['avatar.jpg']
+    const size = jpegSize(face)
+    check(size?.[0] === 184 && size?.[1] === 184, `в архиве аватар 184×184${size ? '' : ' (нет файла)'}`)
+    // Свой арт 1920×1400: квадрат по умолчанию — 630 px с углом в (645, 168), так что в центре
+    // аватара окажется точка арта около (962, 485). JPEG цвет чуть плавит, поэтому сверяем с допуском
+    if (face && !options.art && !options.gif) {
+      const [middle] = await readPixels(page, face, [[92, 92]], 'image/jpeg')
+      const expected = encode(962, 485)
+      const close = middle.slice(0, 3).every((value, i) => Math.abs(value - expected[i]) < 12)
+      check(close, `аватар вырезан из нужного места арта (${middle.slice(0, 3)} против ${expected})`)
+    }
+  }
+
   say('переношу комплект в превью')
   await page.getByRole('button', { name: 'Примерить комплект в превью' }).click()
   await page.waitForURL(/\/preview/, { timeout: 30000 })
@@ -248,6 +263,9 @@ try {
   await shot('03-превью')
   const shown = await page.locator('[data-replica] img').count()
   check(shown >= 8, `в превью встали все части комплекта (${shown})`)
+  if (!options.builder) {
+    check(await page.locator('[data-replica] img[data-avatar]').isVisible(), 'в шапке профиля стоит аватар из комплекта')
+  }
   if (!options.art && !options.gif) await checkAlignment(files)
 
   check(crashes.length === 0, `без ошибок в консоли${crashes.length ? ': ' + crashes.join(' | ') : ''}`)

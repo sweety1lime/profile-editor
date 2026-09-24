@@ -64,6 +64,10 @@ export default function Preview() {
       setRemoteAvatar(tryOn.avatar)
       setAvatarFile(null)
     }
+    if (tryOn.avatarFile) {
+      setAvatarFile(tryOn.avatarFile)
+      setRemoteAvatar(null)
+    }
     showcaseStore.clearTryOn()
   }, [tryOn])
 

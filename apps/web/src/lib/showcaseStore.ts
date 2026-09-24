@@ -23,6 +23,8 @@ export interface TryOn {
   background?: { url: string; isVideo: boolean }
   frame?: string
   avatar?: string
+  // свой аватар из комплекта
+  avatarFile?: File
 }
 
 interface State {

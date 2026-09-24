@@ -91,6 +91,22 @@ export function pngSize(data) {
   return [read(16), read(20)]
 }
 
+// У JPEG размер лежит в заголовке кадра, до него идём по маркерам
+export function jpegSize(data) {
+  if (!data || data[0] !== 0xff || data[1] !== 0xd8) return null
+  let i = 2
+  while (i + 9 < data.length) {
+    if (data[i] !== 0xff) return null
+    const marker = data[i + 1]
+    // заголовки кадра — C0…CF, кроме таблиц C4, C8 и CC
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      return [(data[i + 7] << 8) | data[i + 8], (data[i + 5] << 8) | data[i + 6]]
+    }
+    i += 2 + ((data[i + 2] << 8) | data[i + 3])
+  }
+  return null
+}
+
 async function waitFor(url, attempts = 60) {
   for (let i = 0; i < attempts; i++) {
     try {

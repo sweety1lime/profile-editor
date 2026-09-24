@@ -5,7 +5,7 @@ import { UPLOAD_PAGE, UPLOAD_SNIPPETS, kitFolder, type ShowcaseKind } from '@pro
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
-export function uploadReadme(t: Translate, kinds: ShowcaseKind[]): string {
+export function uploadReadme(t: Translate, kinds: ShowcaseKind[], options: { avatar?: boolean } = {}): string {
   const lines: string[] = []
   if (kinds.length > 1) {
     lines.push(t('kit.readme.title'), '')
@@ -25,5 +25,6 @@ export function uploadReadme(t: Translate, kinds: ShowcaseKind[]): string {
 
   lines.push(t('cutter.upload.note'))
   if (kinds.includes('workshop')) lines.push(t('cutter.upload.workshopNote'))
+  if (options.avatar) lines.push('', t('kit.readme.avatar'))
   return lines.join('\n')
 }

@@ -209,7 +209,9 @@ export default function ProfileReplica({ width, fullWidth, theme, profile, backg
         <div style={{ position: 'relative', width: L.contentWidth, margin: '0 auto' }}>
           <div style={{ position: 'relative', height: L.headerHeight, background: headerBackground }}>
             <div style={{ position: 'absolute', left: 24, top: 34, width: 168, height: 168, padding: 2, background: '#515151' }}>
-              {profile.avatar && <img src={profile.avatar} alt="" style={{ display: 'block', width: 164, height: 164 }} />}
+              {profile.avatar && (
+                <img src={profile.avatar} alt="" data-avatar style={{ display: 'block', width: 164, height: 164 }} />
+              )}
               {profile.frame && (
                 <img
                   src={profile.frame}

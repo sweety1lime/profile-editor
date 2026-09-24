@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { kitFrame, kitSlots, type KitItem, type KitPlacement, type Timeline } from '@profile-editor/core'
-import { buildZip, download, type OutFormat } from './exportSlices'
+import { kitFrame, kitSlots, type AvatarCrop, type KitItem, type KitPlacement, type Timeline } from '@profile-editor/core'
+import { renderAvatar } from './avatar'
+import { buildZip, download, type ExportedFile, type OutFormat } from './exportSlices'
 import { TooBigError, cutShowcases, groupFiles, type CutProgress, type ShowcaseGroup } from './cutShowcases'
 import { uploadReadme } from './readme'
 import { useBusyLabel } from './useBusyLabel'
@@ -17,16 +18,20 @@ interface Options {
   timeline: Timeline | null
   format: OutFormat
   hex: boolean
+  // квадрат аватара и кадр, из которого его режем
+  avatar: { image: CanvasImageSource; crop: AvatarCrop } | null
 }
 
-export function useKitExport({ source, items, placement, timeline, format, hex }: Options) {
+export function useKitExport({ source, items, placement, timeline, format, hex, avatar }: Options) {
   const { t } = useTranslation()
   const [busy, setBusy] = useState<CutProgress | null>(null)
   const [groups, setGroups] = useState<ShowcaseGroup[] | null>(null)
+  const [avatarFile, setAvatarFile] = useState<ExportedFile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   function reset() {
     setGroups(null)
+    setAvatarFile(null)
     setError(null)
   }
 
@@ -42,8 +47,12 @@ export function useKitExport({ source, items, placement, timeline, format, hex }
         hex,
         onProgress: setBusy,
       })
+      const face = avatar ? { name: 'avatar.jpg', blob: await renderAvatar(avatar.image, avatar.crop) } : null
       setGroups(done)
-      download(await buildZip(groupFiles(done), uploadReadme(t, items.map((item) => item.kind))), 'kit.zip')
+      setAvatarFile(face)
+      const files = face ? [...groupFiles(done), face] : groupFiles(done)
+      const readme = uploadReadme(t, items.map((item) => item.kind), { avatar: !!face })
+      download(await buildZip(files, readme), 'kit.zip')
     } catch (err) {
       setError(err instanceof TooBigError ? 'animTooBig' : 'failed')
     } finally {
@@ -51,5 +60,5 @@ export function useKitExport({ source, items, placement, timeline, format, hex }
     }
   }
 
-  return { busy, label: useBusyLabel(busy), groups, error, reset, run }
+  return { busy, label: useBusyLabel(busy), groups, avatarFile, error, reset, run }
 }

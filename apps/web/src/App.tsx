@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Cutter from './pages/Cutter'
+import Kit from './pages/Kit'
 import Preview from './pages/Preview'
 import Guide from './pages/Guide'
 import Gallery from './pages/Gallery'
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/:lang" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="cutter" element={<Cutter />} />
+        <Route path="kit" element={<Kit />} />
         <Route path="builder" element={<Builder />} />
         <Route path="preview" element={<Preview />} />
         <Route path="backgrounds" element={<Gallery />} />

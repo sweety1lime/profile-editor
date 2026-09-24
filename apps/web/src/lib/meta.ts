@@ -11,6 +11,7 @@ const SITE = 'Profile Editor'
 const PAGES: Record<string, string> = {
   '': 'home',
   cutter: 'cutter',
+  kit: 'kit',
   builder: 'builder',
   preview: 'preview',
   backgrounds: 'gallery',

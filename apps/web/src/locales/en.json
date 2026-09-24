@@ -1,6 +1,7 @@
 {
   "nav": {
     "cutter": "Cutter",
+    "kit": "Kit",
     "builder": "Builder",
     "preview": "Preview",
     "gallery": "Catalog",
@@ -21,6 +22,10 @@
       "cutter": {
         "title": "Showcase cutter",
         "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF, a video or an animated Steam background."
+      },
+      "kit": {
+        "title": "Whole-profile kit",
+        "text": "One artwork across several showcases: it runs down the profile page without seams."
       },
       "builder": {
         "title": "Builder",
@@ -138,6 +143,51 @@
       "no_background": "This profile has no Points Shop background.",
       "not_found": "Profile not found.",
       "steam_unavailable": "Steam isn't responding, try again later."
+    }
+  },
+  "kit": {
+    "title": "Whole-profile kit",
+    "lead": "One artwork for every showcase at once: lay it out on the profile page and get the parts for each showcase.",
+    "matchBackground": "Find a background to match",
+    "empty": {
+      "title": "Drop the artwork here",
+      "text": "An image, a GIF or a video will do. Then you pick the showcases and see how the art falls on the profile page."
+    },
+    "showcases": {
+      "title": "Showcases",
+      "empty": "No showcases yet, add at least one.",
+      "height": "Height",
+      "counter": "There is a “+N” tile under the right column",
+      "up": "Move up",
+      "down": "Move down",
+      "remove": "Remove showcase",
+      "hint": "The order and the heights here have to match the profile, otherwise the art falls apart. Showcases are reordered in the profile settings.",
+      "counterHint": "Steam puts the “+N” tile under the right column when you have more works than fit into the showcase — almost always. Without it the showcase is 56 px shorter and everything below moves up. Once a work gets ratings or comments, a showcase without the tile grows by another 24 px."
+    },
+    "place": {
+      "title": "Artwork on the page",
+      "zoom": "Size",
+      "fit": "Cover the showcases",
+      "align": "As in the profile",
+      "hint": "Drag with the mouse, the wheel changes the size, arrows move by a pixel, with Shift by 10."
+    },
+    "export": {
+      "button": "Build the kit",
+      "gifButton": "Build the kit as GIFs",
+      "showcase": "showcase {{done}} of {{total}}",
+      "gifHint": "GIFs are built one showcase at a time ({{count}} of them), which can take a couple of minutes."
+    },
+    "result": {
+      "toPreview": "Try the kit in the preview",
+      "order": "In the profile settings the showcases have to be arranged in this very order."
+    },
+    "readme": {
+      "title": "Showcase kit for a Steam profile",
+      "folder": "{{folder}} — {{kind}}",
+      "order": "In the profile settings the showcases have to be arranged in this order, otherwise the picture will not line up."
+    },
+    "upload": {
+      "intro": "Upload each folder on its own, like a regular showcase."
     }
   },
   "preview": {
@@ -544,6 +594,10 @@
     "cutter": {
       "title": "Showcase slicer",
       "description": "Cuts an image, GIF or video into Steam showcase parts: artwork, featured, screenshots, workshop. GIFs are squeezed under the 5 MB limit."
+    },
+    "kit": {
+      "title": "Whole-profile showcase kit for Steam",
+      "description": "Cuts one artwork into every profile showcase at once: artwork, featured, screenshots and workshop stack up without seams."
     },
     "builder": {
       "title": "Showcase builder",

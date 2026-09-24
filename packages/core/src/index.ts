@@ -1,6 +1,7 @@
 export * from './geometry'
 export * from './layout'
 export * from './crop'
+export * from './kit'
 export * from './timeline'
 export * from './gif'
 export * from './color'

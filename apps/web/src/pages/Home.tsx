@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 const TOOLS = [
   { id: 'cutter', path: 'cutter' },
+  { id: 'kit', path: 'kit' },
   { id: 'builder', path: 'builder' },
   { id: 'optimizer', path: 'cutter' },
   { id: 'preview', path: 'preview' },

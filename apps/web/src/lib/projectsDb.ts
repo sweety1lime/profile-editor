@@ -1,6 +1,14 @@
-import type { Frame, ProjectData, ShowcaseKind } from '@profile-editor/core'
+import type { Frame, KitItem, KitPlacement, ProjectData, ShowcaseKind } from '@profile-editor/core'
+import type { OutFormat } from './exportSlices'
 
-// Всё, что сайт хранит в IndexedDB этого браузера: проекты конструктора и последняя работа нарезчика.
+interface Clip {
+  start: number
+  length: number
+  fps: number
+}
+
+// Всё, что сайт хранит в IndexedDB этого браузера: проекты конструктора и незаконченная работа
+// нарезчика и комплекта.
 // На сервер ничего не уходит. Настройки лежат отдельно от файлов: фон может весить десятки мегабайт,
 // поэтому каждый файл пишем один раз, а при сохранении перезаписываем только настройки
 
@@ -136,53 +144,72 @@ export const projectsDb = {
   },
 }
 
-export interface CutterSession {
-  name: string
-  kind: ShowcaseKind
-  frame: Frame | null
-  clip: { start: number; length: number; fps: number } | null
-  hex: boolean
-  format: 'png' | 'jpg'
+interface Session {
   savedAt: number
 }
 
-const CUTTER = 'cutter'
-const CUTTER_SOURCE = 'cutter:source'
-// исходник нарезчика тоже пишем, только когда он сменился
-let savedSource: Blob | null = null
-
-export const cutterDb = {
-  async load(): Promise<{ session: CutterSession; blob: Blob } | null> {
-    const db = await openDb()
-    const store = db.transaction(SESSIONS).objectStore(SESSIONS)
-    const [session, blob] = await Promise.all([
-      done<CutterSession | undefined>(store.get(CUTTER)),
-      done<Blob | undefined>(store.get(CUTTER_SOURCE)),
-    ])
-    if (!session || !blob) return null
-    savedSource = blob
-    return { session, blob }
-  },
-
-  async save(session: CutterSession, blob: Blob): Promise<void> {
-    const db = await openDb()
-    const tx = db.transaction(SESSIONS, 'readwrite')
-    const store = tx.objectStore(SESSIONS)
-    store.put(session, CUTTER)
-    const fresh = blob !== savedSource
-    if (fresh) store.put(blob, CUTTER_SOURCE)
-    await finished(tx)
-    if (fresh) savedSource = blob
-  },
-
-  async clear(): Promise<void> {
-    const db = await openDb()
-    const tx = db.transaction(SESSIONS, 'readwrite')
-    tx.objectStore(SESSIONS).clear()
-    await finished(tx)
-    savedSource = null
-  },
+export interface CutterSession extends Session {
+  name: string
+  kind: ShowcaseKind
+  frame: Frame | null
+  clip: Clip | null
+  hex: boolean
+  format: OutFormat
 }
+
+export interface KitSession extends Session {
+  name: string
+  items: KitItem[]
+  placement: KitPlacement
+  clip: Clip | null
+  hex: boolean
+  format: OutFormat
+}
+
+// Незаконченная работа страницы: настройки и исходник к ним. Исходник весит куда больше настроек,
+// поэтому пишем его, только когда он сменился, а страницы держат свои ключи и не трогают чужие
+function sessionStore<T extends Session>(key: string) {
+  const sourceKey = `${key}:source`
+  let savedSource: Blob | null = null
+
+  return {
+    async load(): Promise<{ session: T; blob: Blob } | null> {
+      const db = await openDb()
+      const store = db.transaction(SESSIONS).objectStore(SESSIONS)
+      const [session, blob] = await Promise.all([
+        done<T | undefined>(store.get(key)),
+        done<Blob | undefined>(store.get(sourceKey)),
+      ])
+      if (!session || !blob) return null
+      savedSource = blob
+      return { session, blob }
+    },
+
+    async save(session: T, blob: Blob): Promise<void> {
+      const db = await openDb()
+      const tx = db.transaction(SESSIONS, 'readwrite')
+      const store = tx.objectStore(SESSIONS)
+      store.put(session, key)
+      const fresh = blob !== savedSource
+      if (fresh) store.put(blob, sourceKey)
+      await finished(tx)
+      if (fresh) savedSource = blob
+    },
+
+    async clear(): Promise<void> {
+      const db = await openDb()
+      const tx = db.transaction(SESSIONS, 'readwrite')
+      const store = tx.objectStore(SESSIONS)
+      store.delete(key)
+      store.delete(sourceKey)
+      await finished(tx)
+      savedSource = null
+    },
+  }
+}
+
+export const cutterDb = sessionStore<CutterSession>('cutter')
+export const kitDb = sessionStore<KitSession>('kit')
 
 // Просим браузер не выбрасывать сохранённое, когда место на диске кончается
 let asked = false

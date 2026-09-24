@@ -8,6 +8,7 @@ import {
   type TextLayer,
 } from '@profile-editor/core'
 import type { AnimatedSource } from './animated'
+import { drawImageLayer } from './imageStyle'
 import type { Source } from './source'
 
 // Сцена конструктора: фон и слои поверх него. Размер и окна витрин берутся из холста,
@@ -182,11 +183,11 @@ export function drawScene(
     ctx.globalAlpha = pose.opacity
     ctx.translate(pose.x, pose.y)
     ctx.rotate((pose.rotation * Math.PI) / 180)
-    ctx.scale(pose.scale, pose.scale)
     if (layer.type === 'image') {
       const image = assets.get(layer.assetId)
-      if (image) ctx.drawImage(image, -layer.width / 2, -layer.height / 2, layer.width, layer.height)
+      if (image) drawImageLayer(ctx, layer, image, pose.scale)
     } else {
+      ctx.scale(pose.scale, pose.scale)
       drawText(ctx, layer)
     }
     ctx.restore()

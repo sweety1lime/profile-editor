@@ -20,6 +20,46 @@ export interface LayerBase {
   strength: number
 }
 
+export type BlendMode = 'normal' | 'screen' | 'multiply' | 'overlay' | 'soft-light' | 'lighter'
+
+export const BLEND_MODES: BlendMode[] = ['normal', 'screen', 'multiply', 'overlay', 'soft-light', 'lighter']
+
+export type FadeEdge = 'none' | 'bottom' | 'top' | 'left' | 'right' | 'around'
+
+export const FADE_EDGES: FadeEdge[] = ['none', 'bottom', 'top', 'left', 'right', 'around']
+
+// Оформление картинки: обводка, свечение и тень вокруг неё, растворение края и наложение на то,
+// что под ней. Размеры в пикселях холста, а не картинки: обводка в 4 px остаётся 4 px при любом
+// масштабе слоя, иначе у крупного исходника, уменьшенного до витрины, она бы пропадала
+export interface ImageStyle {
+  outline: number
+  outlineColor: string
+  glow: number
+  glowColor: string
+  shadow: number
+  shadowColor: string
+  shadowX: number
+  shadowY: number
+  fade: FadeEdge
+  // доля картинки, на которой она растворяется, от 0 до 1
+  fadeSize: number
+  blend: BlendMode
+}
+
+export const DEFAULT_IMAGE_STYLE: ImageStyle = {
+  outline: 0,
+  outlineColor: '#ffffff',
+  glow: 0,
+  glowColor: '#ffffff',
+  shadow: 0,
+  shadowColor: '#000000',
+  shadowX: 0,
+  shadowY: 8,
+  fade: 'none',
+  fadeSize: 0.3,
+  blend: 'normal',
+}
+
 export interface ImageLayer extends LayerBase {
   type: 'image'
   assetId: string
@@ -27,6 +67,39 @@ export interface ImageLayer extends LayerBase {
   originalAssetId?: string
   width: number
   height: number
+  // у слоёв из старых проектов оформления нет
+  style?: ImageStyle
+}
+
+// Оформление слоя вместе с тем, чего в нём не задано
+export const imageStyle = (layer: ImageLayer): ImageStyle => ({ ...DEFAULT_IMAGE_STYLE, ...layer.style })
+
+// Есть ли что рисовать сверх самой картинки. Наложение сюда не входит: оно меняет не картинку,
+// а то, как она ложится на холст
+export const hasDecoration = (style: ImageStyle) =>
+  style.outline > 0 || style.glow > 0 || style.shadow > 0 || (style.fade !== 'none' && style.fadeSize > 0)
+
+// Сколько места вокруг картинки занимают обводка, свечение и тень. Размытие тени в канвасе
+// заметно примерно на полтора своих радиуса, поэтому берём с запасом
+export function stylePadding(style: ImageStyle): number {
+  const glow = style.glow > 0 ? style.outline + style.glow * 1.5 : 0
+  const shadow =
+    style.shadow > 0 ? style.outline + style.shadow * 1.5 + Math.max(Math.abs(style.shadowX), Math.abs(style.shadowY)) : 0
+  return Math.ceil(Math.max(style.outline, glow, shadow))
+}
+
+// Точки, в которые сдвигаем силуэт, чтобы получить обводку толщиной radius: кольцо по краю
+// и ещё одно на полпути, иначе у мелких деталей тоньше обводки внутри остаются дырки
+export function outlineOffsets(radius: number): { x: number; y: number }[] {
+  if (radius <= 0) return []
+  const rings = radius >= 4 ? [radius, radius / 2] : [radius]
+  return rings.flatMap((r) => {
+    const steps = Math.max(12, Math.ceil(Math.PI * 2 * r))
+    return Array.from({ length: steps }, (_, i) => {
+      const angle = (i / steps) * Math.PI * 2
+      return { x: Math.cos(angle) * r, y: Math.sin(angle) * r }
+    })
+  })
 }
 
 export interface TextLayer extends LayerBase {

@@ -1,9 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import {
   ANIMATIONS,
+  BLEND_MODES,
   EFFECTS,
   EFFECT_COLORS,
+  FADE_EDGES,
+  imageStyle,
+  type BlendMode,
   type ImageLayer,
+  type ImageStyle,
   type Layer,
 } from '@profile-editor/core'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton } from './controls'
@@ -33,6 +38,135 @@ interface Props {
 }
 
 const colorInput = 'h-7 w-10 cursor-pointer rounded border border-line bg-transparent'
+
+// Ползунок с цветом рядом: у обводки, свечения и тени всегда есть и сила, и цвет
+function ColorRange(props: {
+  label: string
+  colorLabel: string
+  value: number
+  max: number
+  color: string
+  onValue: (value: number) => void
+  onColor: (color: string) => void
+}) {
+  return (
+    <div className="flex items-end gap-2">
+      <div className="flex-1">
+        <RangeRow
+          label={props.label}
+          display={`${props.value}`}
+          value={props.value}
+          min={0}
+          max={props.max}
+          onChange={props.onValue}
+        />
+      </div>
+      <input
+        type="color"
+        value={props.color}
+        onChange={(e) => props.onColor(e.target.value)}
+        aria-label={`${props.label}: ${props.colorLabel}`}
+        className={colorInput}
+      />
+    </div>
+  )
+}
+
+// Оформление картинки: обводка, свечение, тень, растворение края и наложение
+function StyleSettings({ layer, onChange }: { layer: ImageLayer; onChange: (patch: Partial<Layer>) => void }) {
+  const { t } = useTranslation()
+  const style = imageStyle(layer)
+  const set = (patch: Partial<ImageStyle>) => onChange({ style: { ...style, ...patch } })
+  const colorLabel = t('builder.layer.color')
+
+  return (
+    <div className="space-y-3 rounded-lg border border-line bg-panel/60 p-3" data-style>
+      <div className="text-slate-300">{t('builder.style.title')}</div>
+      <ColorRange
+        label={t('builder.style.outline')}
+        colorLabel={colorLabel}
+        value={style.outline}
+        max={20}
+        color={style.outlineColor}
+        onValue={(outline) => set({ outline })}
+        onColor={(outlineColor) => set({ outlineColor })}
+      />
+      <ColorRange
+        label={t('builder.style.glow')}
+        colorLabel={colorLabel}
+        value={style.glow}
+        max={60}
+        color={style.glowColor}
+        onValue={(glow) => set({ glow })}
+        onColor={(glowColor) => set({ glowColor })}
+      />
+      <ColorRange
+        label={t('builder.style.shadow')}
+        colorLabel={colorLabel}
+        value={style.shadow}
+        max={40}
+        color={style.shadowColor}
+        onValue={(shadow) => set({ shadow })}
+        onColor={(shadowColor) => set({ shadowColor })}
+      />
+      {style.shadow > 0 && (
+        <>
+          <RangeRow
+            label={t('builder.style.shadowX')}
+            display={`${style.shadowX}`}
+            value={style.shadowX}
+            min={-40}
+            max={40}
+            onChange={(shadowX) => set({ shadowX })}
+          />
+          <RangeRow
+            label={t('builder.style.shadowY')}
+            display={`${style.shadowY}`}
+            value={style.shadowY}
+            min={-40}
+            max={40}
+            onChange={(shadowY) => set({ shadowY })}
+          />
+        </>
+      )}
+      <div>
+        <span className="mb-1 block text-slate-400">{t('builder.style.fade')}</span>
+        <div className="flex flex-wrap gap-1">
+          {FADE_EDGES.map((fade) => (
+            <button key={fade} type="button" onClick={() => set({ fade })} className={chipClass(fade === style.fade)}>
+              {t(`builder.style.fades.${fade}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {style.fade !== 'none' && (
+        <RangeRow
+          label={t('builder.style.fadeSize')}
+          display={`${Math.round(style.fadeSize * 100)}%`}
+          value={Math.round(style.fadeSize * 100)}
+          min={5}
+          max={100}
+          onChange={(value) => set({ fadeSize: value / 100 })}
+        />
+      )}
+      <label className="block">
+        <span className="mb-1 block text-slate-400">{t('builder.style.blend')}</span>
+        <select
+          value={style.blend}
+          onChange={(e) => set({ blend: e.target.value as BlendMode })}
+          className={inputClass}
+        >
+          {BLEND_MODES.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(`builder.style.blends.${mode}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs text-slate-500">{t('builder.style.hint')}</p>
+    </div>
+  )
+}
 
 export default function LayerSettings(props: Props) {
   const { t } = useTranslation()
@@ -78,6 +212,8 @@ export default function LayerSettings(props: Props) {
             <p className="text-xs text-slate-500">{t(`builder.cutout.note.${cutoutModel}`)}</p>
           </div>
         )}
+
+        {layer.type === 'image' && <StyleSettings layer={layer} onChange={onChange} />}
 
         {layer.type === 'text' && (
           <>

@@ -15,7 +15,8 @@
     "typecheck": "tsc -p packages/core && tsc -p packages/userscript && tsc -p apps/web && tsc -p api",
     "lint": "eslint .",
     "e2e": "node scripts/e2e/showcase.mjs",
-    "e2e:kit": "node scripts/e2e/kit.mjs"
+    "e2e:kit": "node scripts/e2e/kit.mjs",
+    "e2e:styles": "node scripts/e2e/styles.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

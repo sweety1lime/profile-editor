@@ -327,6 +327,34 @@
         "fast": "MODNet is trained on photos of people: it doesn't see anime or objects, use Quality for those. Downloaded once, then taken from the browser cache."
       }
     },
+    "style": {
+      "title": "Style",
+      "outline": "Outline",
+      "glow": "Glow",
+      "shadow": "Shadow",
+      "shadowX": "Shadow horizontally",
+      "shadowY": "Shadow vertically",
+      "fade": "Fade the edge",
+      "fades": {
+        "none": "None",
+        "bottom": "Bottom",
+        "top": "Top",
+        "left": "Left",
+        "right": "Right",
+        "around": "All around"
+      },
+      "fadeSize": "Fade width",
+      "blend": "Blending",
+      "blends": {
+        "normal": "Normal",
+        "screen": "Screen — lighter",
+        "multiply": "Multiply — darker",
+        "overlay": "Overlay",
+        "soft-light": "Soft light",
+        "lighter": "Add — for glares and light"
+      },
+      "hint": "Outline and glow follow the outline of the picture, so they suit a cut-out character best: on a picture with a background they will trace a rectangle."
+    },
     "effects": {
       "snow": "Snow",
       "rain": "Rain",

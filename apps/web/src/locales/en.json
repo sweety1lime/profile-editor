@@ -148,7 +148,6 @@
   "kit": {
     "title": "Whole-profile kit",
     "lead": "One artwork for every showcase at once: lay it out on the profile page and get the parts for each showcase.",
-    "matchBackground": "Find a background to match",
     "other": "Other showcase",
     "empty": {
       "title": "Drop the artwork here",
@@ -186,6 +185,22 @@
       "hint": "Drag the square, the wheel changes its size. Steam keeps the avatar at 184×184 and shrinks it for the friends list and chat — check that the face still reads at the smallest size.",
       "animated": "Steam does not take your own animated avatar, animated ones only come from the Points Shop. So we take the first frame."
     },
+    "shop": {
+      "title": "From the Points Shop",
+      "slots": {
+        "backgrounds": "Profile background",
+        "frames": "Avatar frame",
+        "avatars": "Animated avatar",
+        "mini": "Mini profile background"
+      },
+      "pick": "Pick in the catalog",
+      "match": "Match the art colors",
+      "points": "{{points}} points",
+      "open": "Shop",
+      "remove": "Remove",
+      "avatarWins": "The preview shows the bought avatar, the one cut from the art still goes into the archive.",
+      "hint": "Steam does not let you upload a profile background, a frame or an animated avatar — they are bought for points. Here they are kept with the kit, shown in the preview and listed in the note with links."
+    },
     "export": {
       "button": "Build the kit",
       "gifButton": "Build the kit as GIFs",
@@ -201,7 +216,9 @@
       "folder": "{{folder}} — {{kind}}",
       "other": "— another showcase sits here in the profile, its block is {{height}} px tall",
       "order": "In the profile settings the showcases have to be arranged in this order, otherwise the picture will not line up.",
-      "avatar": "avatar.jpg is the avatar. It is uploaded separately: Edit Profile → Avatar → upload your own."
+      "avatar": "avatar.jpg is the avatar. It is uploaded separately: Edit Profile → Avatar → upload your own.",
+      "shop": "From the Points Shop:",
+      "shopItem": "{{slot}}: {{name}}, {{points}} points — {{url}}"
     },
     "upload": {
       "intro": "Upload each folder on its own, like a regular showcase."
@@ -472,6 +489,8 @@
   "gallery": {
     "title": "Points Shop catalog",
     "lead": "Every background, mini profile, frame and avatar sold for Steam points. Updated daily.",
+    "forKit": "Picking for the kit: open an item and press “To the kit”.",
+    "backToKit": "Back to the kit",
     "tabs": {
       "backgrounds": "Backgrounds",
       "mini": "Mini profiles",
@@ -506,6 +525,7 @@
     "cut": "Cut for a showcase",
     "build": "Open in builder",
     "tryOn": "Try on in preview",
+    "toKit": "To the kit",
     "close": "Close",
     "app": "App {{id}}"
   },

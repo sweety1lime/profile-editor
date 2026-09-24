@@ -219,6 +219,7 @@ export default function ProfileReplica({ width, fullWidth, theme, profile, backg
                 <img
                   src={profile.frame}
                   alt=""
+                  data-frame
                   style={{ position: 'absolute', left: -16, top: -16, width: 200, height: 200, maxWidth: 'none' }}
                 />
               )}

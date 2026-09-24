@@ -1,4 +1,5 @@
 import { UPLOAD_PAGE, UPLOAD_SNIPPETS, isCut, kitFolder, type KitItemKind } from '@profile-editor/core'
+import { SHOP_SLOTS, shopUrl, type ShopPicks } from './kitShop'
 
 // Записка, которая едет в архиве рядом с картинками. Для одной витрины это просто порядок
 // загрузки, для комплекта — ещё и какая папка какой витриной становится
@@ -11,7 +12,11 @@ export interface ReadmeEntry {
   height: number
 }
 
-export function uploadReadme(t: Translate, entries: ReadmeEntry[], options: { avatar?: boolean } = {}): string {
+export function uploadReadme(
+  t: Translate,
+  entries: ReadmeEntry[],
+  options: { avatar?: boolean; shop?: ShopPicks } = {},
+): string {
   const kinds = entries.map((entry) => entry.kind).filter(isCut)
   const lines: string[] = []
   if (entries.length > 1) {
@@ -37,5 +42,14 @@ export function uploadReadme(t: Translate, entries: ReadmeEntry[], options: { av
   lines.push(t('cutter.upload.note'))
   if (kinds.includes('workshop')) lines.push(t('cutter.upload.workshopNote'))
   if (options.avatar) lines.push('', t('kit.readme.avatar'))
+
+  const picked = SHOP_SLOTS.filter((slot) => options.shop?.[slot])
+  if (picked.length) {
+    lines.push('', t('kit.readme.shop'))
+    for (const slot of picked) {
+      const pick = options.shop![slot]!
+      lines.push(t('kit.readme.shopItem', { slot: t(`kit.shop.slots.${slot}`), name: pick.name, points: pick.points, url: shopUrl(pick) }))
+    }
+  }
   return lines.join('\n')
 }

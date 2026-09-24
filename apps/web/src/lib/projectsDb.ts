@@ -1,5 +1,6 @@
 import type { AvatarCrop, Frame, KitItem, KitPlacement, ProjectData, ShowcaseKind } from '@profile-editor/core'
 import type { OutFormat } from './exportSlices'
+import type { ShopPicks } from './kitShop'
 
 interface Clip {
   start: number
@@ -163,6 +164,8 @@ export interface KitSession extends Session {
   placement: KitPlacement
   // null — аватар из комплекта убрали; у сохранённого до аватаров поля нет вовсе
   avatar?: AvatarCrop | null
+  // что взято из магазина очков, у сохранённого раньше поля нет
+  shop?: ShopPicks
   clip: Clip | null
   hex: boolean
   format: OutFormat

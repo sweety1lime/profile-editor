@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { decodePalette, encodePalette, paletteDistance, toLab, type PaletteColor } from '@profile-editor/core'
 import PaletteStrip from '../components/PaletteStrip'
@@ -16,6 +16,7 @@ import {
   type CatalogKind,
 } from '../lib/catalog'
 import { colorToHex, hexToPalette, paletteFromFile } from '../lib/palette'
+import { isShopSlot, pendingShop, toPick } from '../lib/kitShop'
 import { showcaseStore } from '../lib/showcaseStore'
 import { useReducedMotion } from '../lib/useReducedMotion'
 
@@ -72,6 +73,8 @@ function ItemDialog(props: {
   onCut: () => void
   onBuild: () => void
   onTry: (() => void) | null
+  // выбираем для комплекта: вещь запоминается вместе с ним
+  onPick: (() => void) | null
 }) {
   const { t, i18n } = useTranslation()
   const { kind, item, onClose } = props
@@ -129,8 +132,17 @@ function ItemDialog(props: {
             </>
           )}
           {props.onTry && (
-            <button type="button" onClick={props.onTry} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-ink">
+            <button
+              type="button"
+              onClick={props.onTry}
+              className={props.onPick ? actionButton : 'rounded-lg bg-accent px-3 py-2 text-sm font-medium text-ink'}
+            >
               {t('gallery.tryOn')}
+            </button>
+          )}
+          {props.onPick && (
+            <button type="button" onClick={props.onPick} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-ink">
+              {t('gallery.toKit')}
             </button>
           )}
         </div>
@@ -144,7 +156,12 @@ export default function Gallery() {
   const navigate = useNavigate()
   const { lang } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [kind, setKind] = useState<CatalogKind>('backgrounds')
+  // из комплекта приходим сразу на нужную вкладку
+  const [kind, setKind] = useState<CatalogKind>(() => {
+    const wanted = searchParams.get('kind')
+    return TABS.find((tab) => tab === wanted) ?? 'backgrounds'
+  })
+  const forKit = searchParams.get('for') === 'kit'
   const [items, setItems] = useState<CatalogItem[] | null>(null)
   // пока не знаем, какие игры для взрослых, каталог не показываем
   const [apps, setApps] = useState<CatalogApps | null>(null)
@@ -280,6 +297,15 @@ export default function Gallery() {
     return null
   }
 
+  function pickAction(item: CatalogItem): (() => void) | null {
+    if (!forKit || !isShopSlot(kind)) return null
+    const slot = kind
+    return () => {
+      pendingShop.put(slot, toPick(slot, item))
+      navigate(`/${lang}/kit`)
+    }
+  }
+
   async function onPaletteFile(file?: File) {
     if (!file) return
     const next = await paletteFromFile(file).catch(() => [])
@@ -292,6 +318,14 @@ export default function Gallery() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-semibold text-white">{t('gallery.title')}</h1>
       <p className="mt-2 max-w-2xl text-slate-400">{t('gallery.lead')}</p>
+      {forKit && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm text-slate-200">
+          <span>{t('gallery.forKit')}</span>
+          <Link to={`/${lang}/kit`} className="text-accent hover:underline">
+            {t('gallery.backToKit')}
+          </Link>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
         {TABS.map((tab) => (
@@ -381,6 +415,7 @@ export default function Gallery() {
           <button
             key={item.d}
             type="button"
+            data-catalog-item
             onClick={() => setSelected(item)}
             className="group relative overflow-hidden rounded-lg border border-line bg-panel text-left transition-colors hover:border-accent"
           >
@@ -415,6 +450,7 @@ export default function Gallery() {
           onCut={() => openWith('cutter', selected)}
           onBuild={() => openWith('builder', selected)}
           onTry={tryOnAction(selected)}
+          onPick={pickAction(selected)}
         />
       )}
     </div>

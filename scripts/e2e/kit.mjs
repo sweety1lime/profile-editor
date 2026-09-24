@@ -174,6 +174,23 @@ async function insertOther() {
   check((await rows.nth(1).textContent()).includes('Другая витрина'), 'другая витрина встала второй')
 }
 
+// Рамку берём из каталога: комплект уходит на другую страницу и должен вернуться целиком
+async function pickFrame() {
+  say('беру рамку из каталога')
+  await page.locator('[data-shop="frames"]').getByRole('button', { name: 'Выбрать в каталоге' }).click()
+  await page.waitForURL(/\/backgrounds\?/, { timeout: 30000 })
+  const first = page.locator('[data-catalog-item]').first()
+  await first.waitFor({ timeout: 60000 })
+  const name = (await first.locator('.truncate').first().textContent()).trim()
+  await first.click()
+  await page.getByRole('button', { name: 'В комплект' }).click()
+  await page.waitForURL(/\/kit$/, { timeout: 30000 })
+  await page.locator('[data-kit-canvas]').waitFor({ timeout: 60000 })
+  await page.waitForTimeout(600)
+  check((await page.locator('[data-shop="frames"]').textContent()).includes(name), `рамка «${name}» встала в комплект`)
+  check((await page.locator('[data-showcases] li').count()) === 4, 'комплект вернулся из каталога целиком')
+}
+
 const setRange = (locator, value) =>
   locator.evaluate((el, v) => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v)
@@ -225,6 +242,7 @@ try {
     check(!before.equals(after), 'высота витрины двигает всю стопку')
     heights.featured = 320
     await insertOther()
+    if (!options.gif) await pickFrame()
     await shot('02-высота')
   }
 
@@ -280,6 +298,11 @@ try {
   check(shown >= 8, `в превью встали все части комплекта (${shown})`)
   if (!options.builder) {
     check(await page.locator('[data-replica] img[data-avatar]').isVisible(), 'в шапке профиля стоит аватар из комплекта')
+  }
+  if (!options.builder && !options.gif) {
+    check(await page.locator('[data-replica] img[data-frame]').isVisible(), 'на аватаре рамка из комплекта')
+    const readme = Buffer.from(files['readme.txt'] ?? []).toString('utf8')
+    check(readme.includes('Рамка аватара') && readme.includes('store.steampowered.com/points/shop/app/'), 'в записке рамка со ссылкой в магазин')
   }
   if (!options.art && !options.gif) await checkAlignment(files)
 

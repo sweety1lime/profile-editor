@@ -122,4 +122,4 @@ export function motionUrl(kind: CatalogKind, item: CatalogItem): string | null {
   return null
 }
 
-export const pointsShopUrl = (item: CatalogItem) => `https://store.steampowered.com/points/shop/app/${item.a}`
+export const pointsShopUrl = (item: Pick<CatalogItem, 'a'>) => `https://store.steampowered.com/points/shop/app/${item.a}`

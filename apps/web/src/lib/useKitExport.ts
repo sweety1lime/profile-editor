@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { kitFrame, kitSlots, type AvatarCrop, type KitItem, type KitPlacement, type Timeline } from '@profile-editor/core'
 import { renderAvatar } from './avatar'
 import { buildZip, download, type ExportedFile, type OutFormat } from './exportSlices'
+import type { ShopPicks } from './kitShop'
 import { TooBigError, cutShowcases, groupFiles, type CutProgress, type ShowcaseGroup } from './cutShowcases'
 import { uploadReadme } from './readme'
 import { useBusyLabel } from './useBusyLabel'
@@ -20,9 +21,11 @@ interface Options {
   hex: boolean
   // квадрат аватара и кадр, из которого его режем
   avatar: { image: CanvasImageSource; crop: AvatarCrop } | null
+  // что к комплекту взято из магазина очков: попадёт в записку со ссылками
+  shop: ShopPicks
 }
 
-export function useKitExport({ source, items, placement, timeline, format, hex, avatar }: Options) {
+export function useKitExport({ source, items, placement, timeline, format, hex, avatar, shop }: Options) {
   const { t } = useTranslation()
   const [busy, setBusy] = useState<CutProgress | null>(null)
   const [groups, setGroups] = useState<ShowcaseGroup[] | null>(null)
@@ -51,7 +54,7 @@ export function useKitExport({ source, items, placement, timeline, format, hex, 
       setGroups(done)
       setAvatarFile(face)
       const files = face ? [...groupFiles(done), face] : groupFiles(done)
-      const readme = uploadReadme(t, items, { avatar: !!face })
+      const readme = uploadReadme(t, items, { avatar: !!face, shop })
       download(await buildZip(files, readme), 'kit.zip')
     } catch (err) {
       setError(err instanceof TooBigError ? 'animTooBig' : 'failed')

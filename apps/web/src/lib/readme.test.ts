@@ -26,6 +26,15 @@ describe('uploadReadme', () => {
     expect(text).not.toContain('kit.readme.folder')
   })
 
+  it('lists what to buy in the Points Shop, with links', () => {
+    const frame = { id: 1, appid: 730, name: 'Dragonlore', points: 500, image: '', full: '', video: false }
+    const text = uploadReadme(t, [{ kind: 'featured', height: 300 }], { shop: { frames: frame } })
+    expect(text).toContain('kit.readme.shop')
+    expect(text).toContain('"name":"Dragonlore"')
+    expect(text).toContain('store.steampowered.com/points/shop/app/730')
+    expect(uploadReadme(t, [{ kind: 'featured', height: 300 }])).not.toContain('kit.readme.shop')
+  })
+
   it('mentions the avatar only when there is one', () => {
     const entries = [{ kind: 'featured' as const, height: 300 }]
     expect(uploadReadme(t, entries)).not.toContain('kit.readme.avatar')

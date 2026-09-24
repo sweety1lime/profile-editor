@@ -24,6 +24,8 @@ interface Props {
   placement: KitPlacement
   labels: Record<ShowcaseKind, string>
   otherLabel: string
+  // фон профиля из магазина очков: видно, как арт ляжет на него
+  backdrop: HTMLImageElement | null
   onChange: (placement: KitPlacement) => void
 }
 
@@ -57,7 +59,7 @@ function partSize(kind: ShowcaseKind, height: number): string {
 }
 
 export default function KitCanvas(props: Props) {
-  const { image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, onChange } = props
+  const { image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, backdrop, onChange } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -113,6 +115,10 @@ export default function KitCanvas(props: Props) {
     const page = at(0, 0)
     ctx.fillStyle = PAGE_COLOR
     ctx.fillRect(page.x, page.y, PROFILE_BACKGROUND_WIDTH * view.scale, pageHeight * view.scale)
+    if (backdrop?.naturalWidth) {
+      const height = (backdrop.naturalHeight / backdrop.naturalWidth) * PROFILE_BACKGROUND_WIDTH
+      ctx.drawImage(backdrop, page.x, page.y, PROFILE_BACKGROUND_WIDTH * view.scale, height * view.scale)
+    }
 
     const art = at(placement.x, placement.y)
     ctx.drawImage(image, art.x, art.y, artWidth * view.scale, artHeight * view.scale)
@@ -167,7 +173,7 @@ export default function KitCanvas(props: Props) {
         ctx.fillText(label, point.x + 5, point.y + 9)
       }
     }
-  }, [image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, size, view, pageHeight, artWidth, artHeight])
+  }, [image, imageWidth, imageHeight, slots, blocks, placement, labels, otherLabel, backdrop, size, view, pageHeight, artWidth, artHeight])
 
   useEffect(() => {
     const canvas = canvasRef.current

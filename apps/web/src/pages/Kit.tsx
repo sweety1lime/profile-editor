@@ -26,6 +26,7 @@ import {
 } from '@profile-editor/core'
 import AvatarPicker from '../components/AvatarPicker'
 import KitCanvas from '../components/KitCanvas'
+import KitShop from '../components/KitShop'
 import ShowcaseList from '../components/ShowcaseList'
 import { RangeRow, Section, inputClass, secondaryButton } from '../components/controls'
 import { paletteFromImage } from '../lib/palette'
@@ -34,6 +35,8 @@ import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
 import { toMegabytes, type OutFormat } from '../lib/exportSlices'
 import { useKitExport } from '../lib/useKitExport'
+import { pendingShop, type ShopPicks, type ShopSlot } from '../lib/kitShop'
+import { useLoadedImage } from '../lib/useLoadedImage'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
 const DEFAULT_CLIP_SECONDS = 5
@@ -56,6 +59,8 @@ export default function Kit() {
   const [placement, setPlacement] = useState<KitPlacement>(IDENTITY)
   // квадрат аватара на исходнике, null — аватар в комплект не кладём
   const [avatar, setAvatar] = useState<AvatarCrop | null>(null)
+  // из каталога возвращаемся с выбранной вещью: забираем её сразу, пока комплект грузится
+  const [shop, setShop] = useState<ShopPicks>(() => pendingShop.take())
   const [clip, setClip] = useState<Clip | null>(null)
   const [hex, setHex] = useState(false)
   const [format, setFormat] = useState<OutFormat>('png')
@@ -85,7 +90,11 @@ export default function Kit() {
     format,
     hex,
     avatar: avatar && poster ? { image: poster, crop: avatar } : null,
+    shop,
   })
+  const backdrop = useLoadedImage(shop.backgrounds?.image)
+  // отложенное сохранение, которое ещё не случилось: уходя со страницы, его надо дописать
+  const pendingSave = useRef<(() => void) | null>(null)
 
   // старый исходник освобождаем, когда пришёл новый
   useEffect(() => {
@@ -98,16 +107,22 @@ export default function Kit() {
   useEffect(() => {
     if (!source) return
     const gen = generation.current
-    const timer = setTimeout(() => {
+    const save = () => {
+      pendingSave.current = null
       if (gen !== generation.current) return
-      const session: KitSession = { name: source.name, items, placement, avatar, clip, hex, format, savedAt: Date.now() }
+      const session: KitSession = { name: source.name, items, placement, avatar, shop, clip, hex, format, savedAt: Date.now() }
       saveQueue.current = saveQueue.current
         .then(() => kitDb.save(session, source.blob))
         .then(askPersistentStorage)
         .catch((err) => console.warn('kit save failed:', err))
-    }, SAVE_DELAY)
+    }
+    pendingSave.current = save
+    const timer = setTimeout(save, SAVE_DELAY)
     return () => clearTimeout(timer)
-  }, [source, items, placement, avatar, clip, hex, format])
+  }, [source, items, placement, avatar, shop, clip, hex, format])
+
+  // в каталог за фоном и обратно ходят быстро, последняя правка не должна потеряться
+  useEffect(() => () => pendingSave.current?.(), [])
 
   // из каталога и нарезчика приходим со ссылкой на арт в адресе
   const [searchParams] = useSearchParams()
@@ -145,6 +160,8 @@ export default function Kit() {
         setHex(session.hex)
         setFormat(session.format)
         setAvatar(session.avatar === undefined ? defaultAvatarCrop(next.width, next.height) : session.avatar)
+        // только что выбранное в каталоге новее сохранённого
+        setShop((picked) => ({ ...session.shop, ...picked }))
         setRestored(session.name)
       })
       .catch((err) => console.warn('kit restore failed:', err))
@@ -157,6 +174,7 @@ export default function Kit() {
     setItems(DEFAULT_KIT.map((kind) => kitItem(kind)))
     setPlacement(IDENTITY)
     setAvatar(null)
+    setShop({})
     setClip(null)
     setRestored(null)
     setLink('')
@@ -231,13 +249,25 @@ export default function Kit() {
     exporter.reset()
   }
 
-  // Считаем палитру арта и открываем каталог фонов, отсортированный по похожести:
-  // фон профиля не загрузить своим файлом, его остаётся только подобрать
-  function matchBackground() {
-    if (!source) return
-    const image = source.type === 'still' ? source.image : source.poster
-    const palette = paletteFromImage(image, source.width, source.height)
-    if (palette.length) navigate(`/${lang}/backgrounds?palette=${encodePalette(palette)}`)
+  // Открываем каталог на нужной вкладке. Фон подбираем по палитре арта: свой фон профиля не
+  // загрузить, его остаётся только подобрать, и лучше сразу похожий по цветам
+  function openCatalog(slot: ShopSlot) {
+    const params = new URLSearchParams({ kind: slot, for: 'kit' })
+    if (slot === 'backgrounds' && source) {
+      const image = source.type === 'still' ? source.image : source.poster
+      const palette = paletteFromImage(image, source.width, source.height)
+      if (palette.length) params.set('palette', encodePalette(palette))
+    }
+    navigate(`/${lang}/backgrounds?${params}`)
+  }
+
+  function removePick(slot: ShopSlot) {
+    setShop((picks) => {
+      const next = { ...picks }
+      delete next[slot]
+      return next
+    })
+    exporter.reset()
   }
 
   // Отдаём весь комплект в превью тем же порядком, каким он стоит на странице профиля
@@ -252,9 +282,13 @@ export default function Kit() {
       const group = groups.find((g) => g.id === item.id)
       if (group) showcaseStore.addShowcase(group.kind, group.files, { counter: item.counter })
     }
+    // купленный аватар и фон и есть то, что будет в профиле, поэтому в превью встают они
     const face = exporter.avatarFile
-    if (face) showcaseStore.tryOn({ avatarFile: new File([face.blob], face.name, { type: face.blob.type }) })
-    if (isProfileBackground(source.width)) {
+    if (shop.avatars) showcaseStore.tryOn({ avatar: shop.avatars.full })
+    else if (face) showcaseStore.tryOn({ avatarFile: new File([face.blob], face.name, { type: face.blob.type }) })
+    if (shop.frames) showcaseStore.tryOn({ frame: shop.frames.full })
+    if (shop.backgrounds) showcaseStore.tryOn({ background: { url: shop.backgrounds.full, isVideo: shop.backgrounds.video } })
+    else if (isProfileBackground(source.width)) {
       showcaseStore.setBackground({ blob: source.blob, isVideo: source.blob.type.startsWith('video/') })
     }
     navigate(`/${lang}/preview`)
@@ -313,11 +347,6 @@ export default function Kit() {
                 {t('cutter.restore.reset')}
               </button>
             </div>
-          )}
-          {source && (
-            <button type="button" onClick={matchBackground} className={`${secondaryButton} mt-3 w-full`}>
-              {t('kit.matchBackground')}
-            </button>
           )}
         </Section>
 
@@ -385,6 +414,16 @@ export default function Kit() {
             )}
           </Section>
         )}
+
+        <Section title={t('kit.shop.title')}>
+          <KitShop
+            picks={shop}
+            canMatch={!!source}
+            avatarFromArt={!!avatar}
+            onPick={openCatalog}
+            onRemove={removePick}
+          />
+        </Section>
 
         {source?.type === 'animated' && clip && timeline && (
           <Section title={t('cutter.clip.title')}>
@@ -552,6 +591,7 @@ export default function Kit() {
             placement={placement}
             labels={labels}
             otherLabel={t('kit.other')}
+            backdrop={backdrop}
             onChange={changePlacement}
           />
         ) : (

@@ -29,7 +29,7 @@ function parseArgs(argv) {
     effect: null,
     title: null,
     subtitle: null,
-    out: new URL('e2e-out/', ROOT).pathname.slice(1),
+    out: fileURLToPath(new URL('e2e-out', ROOT)),
     base: null,
     port: 4173,
   }

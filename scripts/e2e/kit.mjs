@@ -9,6 +9,7 @@
 //
 // Скриншоты каждого шага и собранный архив складываются в --out.
 
+import { fileURLToPath } from 'node:url'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { unzipSync } from 'fflate'
@@ -24,7 +25,7 @@ function parseArgs(argv) {
     gif: false,
     // тот же комплект, но собранный слоями в конструкторе
     builder: false,
-    out: new URL('e2e-out/kit/', ROOT).pathname.slice(1),
+    out: fileURLToPath(new URL('e2e-out/kit', ROOT)),
     base: null,
     port: 4180,
   }

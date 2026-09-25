@@ -5,12 +5,13 @@
 //
 //   npm run build && npm run e2e:styles
 
+import { fileURLToPath } from 'node:url'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { unzipSync } from 'fflate'
 import { ROOT, gifFrames, png, readPixels, startServer } from './helpers.mjs'
 
-const options = { out: new URL('e2e-out/styles/', ROOT).pathname.slice(1), base: null, port: 4181 }
+const options = { out: fileURLToPath(new URL('e2e-out/styles', ROOT)), base: null, port: 4181 }
 for (let i = 2; i < process.argv.length; i++) {
   const key = process.argv[i].replace(/^--/, '')
   if (key in options) options[key] = process.argv[++i]

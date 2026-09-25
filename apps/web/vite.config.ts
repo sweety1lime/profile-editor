@@ -84,10 +84,24 @@ function steamApi(): Plugin {
   }
 }
 
+// onnxruntime ссылается на свой wasm, и Vite копирует его в сборку — 23 МБ. Но transformers
+// перед запуском сам направляет onnxruntime за этим файлом на jsdelivr, наша копия не грузится никогда
+function dropOrtWasm(): Plugin {
+  return {
+    name: 'drop-ort-wasm',
+    apply: 'build',
+    generateBundle(_, bundle) {
+      for (const name of Object.keys(bundle)) {
+        if (/ort-wasm[^/]*\.wasm$/.test(name)) delete bundle[name]
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), steamApi(), staticPages()],
+  plugins: [react(), tailwindcss(), steamApi(), staticPages(), dropOrtWasm()],
   // воркер вырезки фона грузит части transformers динамически, это работает только в формате ES
-  worker: { format: 'es' },
+  worker: { format: 'es', plugins: () => [dropOrtWasm()] },
   // Эти библиотеки подключаются на ходу: кодировщик гифок — при сборке, декодеры — когда открыли
   // видео или гифку. Если Vite встретит их впервые посреди работы, он перезапакует зависимости
   // и перезагрузит страницу, потеряв всё, что человек успел собрать

@@ -29,11 +29,12 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-line">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4">
+        {/* на узком экране меню уходит второй строкой и листается вбок, логотип и языки остаются сверху */}
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
           <Link to={`/${lang}`} className="font-semibold text-white">
             Profile Editor
           </Link>
-          <nav className="flex gap-4 text-sm">
+          <nav className="order-last -mb-1 flex w-full gap-4 overflow-x-auto whitespace-nowrap pb-1 text-sm lg:order-none lg:mb-0 lg:w-auto lg:pb-0">
             <NavLink to={`/${lang}/cutter`} className={navClass}>
               {t('nav.cutter')}
             </NavLink>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   DEFAULT_SHOWCASE_HEIGHT,
@@ -9,6 +9,7 @@ import {
   type ShowcaseKind,
 } from '@profile-editor/core'
 import ProfileReplica, { type ReplicaBackground } from '../components/ProfileReplica'
+import { Section, chipClass, inputClass, secondaryButton } from '../components/controls'
 import ScaledBox from '../components/ScaledBox'
 import { showcaseStore, useShowcaseStore } from '../lib/showcaseStore'
 import { THEME_NAMES, themeFromSteam, type ThemeName } from '../lib/themes'
@@ -17,22 +18,6 @@ import { useObjectUrl, useObjectUrls } from '../lib/useObjectUrl'
 const WIDTHS = [1366, 1600, 1920, 2560]
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
 const KNOWN_ERRORS = ['bad_input', 'not_found', 'steam_unavailable']
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
-const inputClass =
-  'w-full min-w-0 rounded-lg border border-line bg-panel px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent'
-const secondaryButton =
-  'rounded-lg border border-line bg-panel px-3 py-2 text-sm text-slate-200 hover:border-slate-500 disabled:opacity-50'
-const chipClass = (active: boolean) =>
-  `rounded-md border px-2 py-1 text-xs ${active ? 'border-accent bg-accent/10 text-white' : 'border-line text-slate-400 hover:text-white'}`
 
 export default function Preview() {
   const { t } = useTranslation()

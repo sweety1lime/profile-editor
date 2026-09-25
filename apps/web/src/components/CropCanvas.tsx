@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { SHOWCASES, sliceRects, zoomFrame, type Frame, type ShowcaseKind } from '@profile-editor/core'
+import { ZOOM_STEP, fitView, type View } from '../lib/canvasView'
 
 interface Props {
   image: CanvasImageSource
@@ -8,25 +9,6 @@ interface Props {
   kind: ShowcaseKind
   frame: Frame
   onChange: (frame: Frame) => void
-}
-
-interface View {
-  scale: number
-  ox: number
-  oy: number
-}
-
-const PAD = 24
-const ZOOM_STEP = 1.08
-
-// Вписываем в холст и картинку, и рамку, чтобы рамка не терялась за краем
-function fitView(width: number, height: number, box: { x: number; y: number; w: number; h: number }): View {
-  const scale = Math.max(0.01, Math.min((width - PAD * 2) / box.w, (height - PAD * 2) / box.h))
-  return {
-    scale,
-    ox: (width - box.w * scale) / 2 - box.x * scale,
-    oy: (height - box.h * scale) / 2 - box.y * scale,
-  }
 }
 
 export default function CropCanvas({ image, imageWidth, imageHeight, kind, frame, onChange }: Props) {
@@ -56,6 +38,7 @@ export default function CropCanvas({ image, imageWidth, imageHeight, kind, frame
   const frameH = frame.height * frame.scale
   const left = Math.min(0, frame.x)
   const top = Math.min(0, frame.y)
+  // вписываем в холст и картинку, и рамку, чтобы рамка не терялась за краем
   const view =
     frozenView ??
     fitView(size.width, size.height, {

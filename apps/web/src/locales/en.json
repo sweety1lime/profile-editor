@@ -6,8 +6,7 @@
     "preview": "Preview",
     "gallery": "Catalog",
     "infobox": "Text",
-    "guide": "How to upload",
-    "check": "Check"
+    "guide": "How to upload"
   },
   "common": {
     "copy": "Copy code",
@@ -17,7 +16,6 @@
   "home": {
     "title": "Steam profile design without the hassle",
     "lead": "Cut backgrounds, pictures and videos for showcases, squeeze GIFs under the Steam limit and see how it all looks on your profile. Everything runs in your browser.",
-    "soon": "soon",
     "tools": {
       "cutter": {
         "title": "Showcase cutter",

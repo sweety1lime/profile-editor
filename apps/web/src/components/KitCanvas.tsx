@@ -13,6 +13,7 @@ import {
   type KitSlot,
   type ShowcaseKind,
 } from '@profile-editor/core'
+import { ZOOM_STEP, fitView, type View } from '../lib/canvasView'
 
 interface Props {
   image: CanvasImageSource
@@ -29,27 +30,9 @@ interface Props {
   onChange: (placement: KitPlacement) => void
 }
 
-interface View {
-  scale: number
-  ox: number
-  oy: number
-}
-
-const PAD = 24
-const ZOOM_STEP = 1.08
 const PAGE_COLOR = '#0b0e14'
 const BLOCK_COLOR = 'rgba(255, 255, 255, 0.07)'
 const OUTLINE_COLOR = '#7c9cff'
-
-// Вписываем в холст и страницу профиля, и сам арт: за краем не должно теряться ни то, ни другое
-function fitView(width: number, height: number, box: { x: number; y: number; w: number; h: number }): View {
-  const scale = Math.max(0.01, Math.min((width - PAD * 2) / box.w, (height - PAD * 2) / box.h))
-  return {
-    scale,
-    ox: (width - box.w * scale) / 2 - box.x * scale,
-    oy: (height - box.h * scale) / 2 - box.y * scale,
-  }
-}
 
 // Размер части витрины в готовом файле: у мастерской он крупнее, чем на странице
 function partSize(kind: ShowcaseKind, height: number): string {
@@ -87,6 +70,7 @@ export default function KitCanvas(props: Props) {
   const artHeight = imageHeight * placement.scale
   const left = Math.min(0, placement.x)
   const top = Math.min(0, placement.y)
+  // вписываем в холст и страницу профиля, и сам арт: за краем не должно теряться ни то, ни другое
   const view =
     frozenView ??
     fitView(size.width, size.height, {

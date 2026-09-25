@@ -21,7 +21,7 @@
     "tools": {
       "cutter": {
         "title": "Showcase cutter",
-        "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF, a video or an animated Steam background."
+        "text": "Artwork, featured artwork, screenshots and workshop. Works with a picture, a GIF, a video or an animated Steam background. GIFs fit into 5 MB and all parts share the same frames."
       },
       "kit": {
         "title": "Whole-profile kit",
@@ -30,10 +30,6 @@
       "builder": {
         "title": "Builder",
         "text": "Your own picture for a showcase: background, character, captions and light animation. Comes out as ready Steam parts."
-      },
-      "optimizer": {
-        "title": "GIFs under 5 MB",
-        "text": "Every part fits the limit and all parts share the same frames, so the animation stays in sync."
       },
       "preview": {
         "title": "Profile preview",

@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-
-# страница диагностики, в поиске ей делать нечего
-Disallow: /ru/check
-Disallow: /en/check

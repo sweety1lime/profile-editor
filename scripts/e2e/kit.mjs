@@ -223,7 +223,9 @@ try {
   } else {
     say('открываю комплект')
     await page.goto(`${server.base}/ru/kit`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    check(await page.getByRole('heading', { name: 'Комплект на весь профиль' }).isVisible(), 'страница открылась')
+    // страница догружается отдельным куском уже после html, поэтому ждём заголовок, а не смотрим сразу
+    const heading = page.getByRole('heading', { name: 'Комплект на весь профиль' })
+    check(await heading.waitFor({ timeout: 20000 }).then(() => true, () => false), 'страница открылась')
 
     await page.locator('input[type=file][accept="image/*,video/*"]').setInputFiles(art)
     await page.locator('[data-kit-canvas]').waitFor({ timeout: 60000 })

@@ -1,16 +1,20 @@
+import { lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import Layout from './components/Layout'
 import Home from './pages/Home'
-import Cutter from './pages/Cutter'
-import Kit from './pages/Kit'
-import Preview from './pages/Preview'
-import Guide from './pages/Guide'
-import Gallery from './pages/Gallery'
-import Infobox from './pages/Infobox'
-import Builder from './pages/Builder'
-import Check from './pages/Check'
 import { detectLang } from './i18n'
+
+// Каждый инструмент грузится, только когда на него зашли: тому, кто открыл каталог,
+// не нужно качать конструктор. Главная приходит сразу вместе с сайтом
+const Cutter = lazy(() => import('./pages/Cutter'))
+const Kit = lazy(() => import('./pages/Kit'))
+const Preview = lazy(() => import('./pages/Preview'))
+const Guide = lazy(() => import('./pages/Guide'))
+const Gallery = lazy(() => import('./pages/Gallery'))
+const Infobox = lazy(() => import('./pages/Infobox'))
+const Builder = lazy(() => import('./pages/Builder'))
+const Check = lazy(() => import('./pages/Check'))
 
 function NotFound() {
   const { t } = useTranslation()

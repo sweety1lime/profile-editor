@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react'
+import { Suspense, useLayoutEffect } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { LANGS, detectLang, isLang } from '../i18n'
@@ -76,7 +76,9 @@ export default function Layout() {
       <main className="flex-1">
         {/* ключ по адресу: уходя со сломавшейся страницы, показываем следующую как обычно */}
         <ErrorBoundary key={location.pathname}>
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </ErrorBoundary>
       </main>
 

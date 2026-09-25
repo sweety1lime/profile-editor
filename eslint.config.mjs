@@ -23,7 +23,7 @@ export default defineConfig(
   },
   {
     // сценарий сам живёт в node, но передаёт куски кода в браузер, так что знает и те глобальные
-    files: ['scripts/e2e/**/*.mjs', 'scripts/measure-profile.mjs'],
+    files: ['scripts/e2e/**/*.mjs', 'scripts/measure-profile.mjs', 'scripts/og-image.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 )

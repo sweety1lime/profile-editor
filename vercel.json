@@ -5,8 +5,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/dist",
   "regions": ["fra1"],
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/((?!api/|assets/|catalog/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|catalog/).*)", "destination": "/" }
   ],
   "headers": [
     {

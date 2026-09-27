@@ -1,8 +1,8 @@
 {
- "version": "cbee39b79d9e",
+ "version": "a06b2f105851",
  "kinds": {
   "backgrounds": {
-   "total": 63639,
+   "total": 63637,
    "shards": [
     "backgrounds-0.json",
     "backgrounds-1.json",

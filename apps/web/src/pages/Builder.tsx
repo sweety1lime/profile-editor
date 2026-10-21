@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import {
   DEFAULT_KIT,
   FPS_OPTIONS,
-  UPLOAD_LIMIT_BYTES,
   clampHeight,
   crossesSeam,
   fitSceneFrame,
@@ -27,13 +26,15 @@ import {
   type ShowcaseKind,
 } from '@profile-editor/core'
 import BuilderStage from '../components/BuilderStage'
+import { FileSizes, HexToggle } from '../components/ExportFiles'
+import LayerList from '../components/LayerList'
 import LayerSettings, { type CutoutProgress } from '../components/LayerSettings'
 import ProjectsPanel from '../components/ProjectsPanel'
 import ShowcaseList from '../components/ShowcaseList'
 import { RangeRow, Section, chipClass, inputClass, secondaryButton, toggleClass } from '../components/controls'
 import { drawScene, layerSize, type Scene, type SceneBackground } from '../lib/compose'
 import { removeBackground, type CutoutModel } from '../lib/cutout'
-import { toMegabytes, type OutFormat } from '../lib/exportSlices'
+import { type OutFormat } from '../lib/exportSlices'
 import { useFontsReady } from '../lib/fonts'
 import { effectLayer, imageLayer, textLayer } from '../lib/newLayer'
 import { bitmapToBlob } from '../lib/projectsDb'
@@ -499,13 +500,6 @@ export default function Builder() {
       ? 'cutter.export.gifButton'
       : 'cutter.export.button'
 
-  const layerLabel = (layer: Layer) => {
-    if (layer.type === 'text') return layer.text.split('\n')[0] || '…'
-    if (layer.type === 'effect') return t(`builder.effects.${layer.effect}`)
-    return layer.name
-  }
-  const layerIcon = { text: 'T', image: '▣', effect: '✦' }
-
   return (
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[340px_1fr]">
       <aside className="space-y-6">
@@ -654,57 +648,14 @@ export default function Builder() {
             }}
           />
           {layers.length === 0 && <p className="mt-2 text-xs text-slate-500">{t('builder.layers.empty')}</p>}
-          <ul className="mt-3 space-y-1" data-layers>
-            {[...layers].reverse().map((layer) => (
-              <li
-                key={layer.id}
-                className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm ${
-                  layer.id === selectedId ? 'border-accent bg-accent/10' : 'border-line bg-panel'
-                }`}
-              >
-                <button type="button" onClick={() => setSelectedId(layer.id)} className="min-w-0 flex-1 truncate text-left text-slate-200">
-                  <span className="mr-2 text-xs text-slate-500">{layerIcon[layer.type]}</span>
-                  {layerLabel(layer)}
-                </button>
-                <button
-                  type="button"
-                  title={t(layer.visible ? 'builder.layers.hide' : 'builder.layers.show')}
-                  aria-label={t(layer.visible ? 'builder.layers.hide' : 'builder.layers.show')}
-                  onClick={() => updateLayer(layer.id, { visible: !layer.visible })}
-                  className={`px-1 ${layer.visible ? 'text-slate-400' : 'text-slate-600'} hover:text-white`}
-                >
-                  {layer.visible ? '◉' : '○'}
-                </button>
-                <button
-                  type="button"
-                  title={t('builder.layers.up')}
-                  aria-label={t('builder.layers.up')}
-                  onClick={() => setLayers((list) => moveLayer(list, layer.id, 1))}
-                  className="px-1 text-slate-400 hover:text-white"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  title={t('builder.layers.down')}
-                  aria-label={t('builder.layers.down')}
-                  onClick={() => setLayers((list) => moveLayer(list, layer.id, -1))}
-                  className="px-1 text-slate-400 hover:text-white"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  title={t('builder.layers.remove')}
-                  aria-label={t('builder.layers.remove')}
-                  onClick={() => removeLayer(layer.id)}
-                  className="px-1 text-slate-400 hover:text-red-400"
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
+          <LayerList
+            layers={layers}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onToggle={(layer) => updateLayer(layer.id, { visible: !layer.visible })}
+            onMove={(id, delta) => setLayers((list) => moveLayer(list, id, delta))}
+            onRemove={removeLayer}
+          />
         </Section>
 
         {selected && (
@@ -765,21 +716,13 @@ export default function Builder() {
                   ))}
                 </div>
               </div>
-              <label className="flex items-start gap-2 text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={hex}
-                  onChange={(e) => {
-                    setHex(e.target.checked)
-                    exporter.reset()
-                  }}
-                  className="mt-1 accent-accent"
-                />
-                <span>
-                  {t('cutter.clip.hex')}
-                  <span className="block text-xs text-slate-500">{t('cutter.clip.hexHint')}</span>
-                </span>
-              </label>
+              <HexToggle
+                checked={hex}
+                onChange={(checked) => {
+                  setHex(checked)
+                  exporter.reset()
+                }}
+              />
               {source?.type === 'animated' && <p className="text-xs text-slate-500">{t('builder.loop.videoNote')}</p>}
             </div>
           </Section>
@@ -824,16 +767,7 @@ export default function Builder() {
                     {index + 1}. {t(`cutter.kind.${group.kind}`)}
                   </div>
                 )}
-                <ul className="space-y-1 text-sm">
-                  {group.files.map((f) => (
-                    <li key={f.name} className="flex justify-between">
-                      <span className="text-slate-300">{f.name}</span>
-                      <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
-                        {t('cutter.export.size', { mb: toMegabytes(f.blob.size) })}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <FileSizes files={group.files} />
                 {group.thinned && <p className="mt-1 text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
               </div>
             ))}

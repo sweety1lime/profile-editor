@@ -22,12 +22,13 @@ import {
 import CopyButton from '../components/CopyButton'
 import { RangeRow, Section, inputClass, secondaryButton, toggleClass } from '../components/controls'
 import CropCanvas from '../components/CropCanvas'
+import { FileSizes, HexToggle } from '../components/ExportFiles'
 import ShowcasePreview from '../components/ShowcasePreview'
 import { paletteFromImage } from '../lib/palette'
 import { askPersistentStorage, cutterDb, type CutterSession } from '../lib/projectsDb'
 import { showcaseStore } from '../lib/showcaseStore'
 import { SourceError, disposeSource, fromBlob, fromFile, fromLink, type Source } from '../lib/source'
-import { buildZip, download, renderSlices, toMegabytes, type ExportedFile, type OutFormat } from '../lib/exportSlices'
+import { buildZip, download, renderSlices, type ExportedFile, type OutFormat } from '../lib/exportSlices'
 import type { Progress } from '../lib/encodeGif'
 
 const KINDS: ShowcaseKind[] = ['artwork', 'featured', 'screenshot', 'workshop']
@@ -451,21 +452,13 @@ export default function Cutter() {
                 </div>
               </div>
               <p className="text-xs text-slate-500">{t('cutter.clip.frames', { count: timeline.timestamps.length })}</p>
-              <label className="flex items-start gap-2 text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={hex}
-                  onChange={(e) => {
-                    setHex(e.target.checked)
-                    resetResult()
-                  }}
-                  className="mt-1 accent-accent"
-                />
-                <span>
-                  {t('cutter.clip.hex')}
-                  <span className="block text-xs text-slate-500">{t('cutter.clip.hexHint')}</span>
-                </span>
-              </label>
+              <HexToggle
+                checked={hex}
+                onChange={(checked) => {
+                  setHex(checked)
+                  resetResult()
+                }}
+              />
             </div>
           </Section>
         )}
@@ -504,16 +497,7 @@ export default function Cutter() {
 
         {result && (
           <div className="space-y-2">
-            <ul className="space-y-1 text-sm">
-              {result.files.map((f) => (
-                <li key={f.name} className="flex justify-between">
-                  <span className="text-slate-300">{f.name}</span>
-                  <span className={f.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
-                    {t('cutter.export.size', { mb: toMegabytes(f.blob.size) })}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <FileSizes files={result.files} />
             {result.frames ? (
               <p className="text-xs text-slate-500">{t('cutter.result.info', { frames: result.frames, fps: result.fps })}</p>
             ) : null}

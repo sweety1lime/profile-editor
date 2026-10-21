@@ -28,6 +28,7 @@ import AvatarPicker from '../components/AvatarPicker'
 import KitCanvas from '../components/KitCanvas'
 import KitShop from '../components/KitShop'
 import ShowcaseList from '../components/ShowcaseList'
+import { FileSizes, HexToggle } from '../components/ExportFiles'
 import { RangeRow, Section, inputClass, secondaryButton } from '../components/controls'
 import { paletteFromImage } from '../lib/palette'
 import { askPersistentStorage, kitDb, type KitSession } from '../lib/projectsDb'
@@ -464,21 +465,13 @@ export default function Kit() {
                 </div>
               </div>
               <p className="text-xs text-slate-500">{t('kit.export.gifHint', { count: items.length })}</p>
-              <label className="flex items-start gap-2 text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={hex}
-                  onChange={(e) => {
-                    setHex(e.target.checked)
-                    exporter.reset()
-                  }}
-                  className="mt-1 accent-accent"
-                />
-                <span>
-                  {t('cutter.clip.hex')}
-                  <span className="block text-xs text-slate-500">{t('cutter.clip.hexHint')}</span>
-                </span>
-              </label>
+              <HexToggle
+                checked={hex}
+                onChange={(checked) => {
+                  setHex(checked)
+                  exporter.reset()
+                }}
+              />
             </div>
           </Section>
         )}
@@ -523,16 +516,7 @@ export default function Kit() {
                 <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">
                   {index + 1}. {t(`cutter.kind.${group.kind}`)}
                 </div>
-                <ul className="space-y-1 text-sm">
-                  {group.files.map((file) => (
-                    <li key={file.name} className="flex justify-between">
-                      <span className="text-slate-300">{file.name}</span>
-                      <span className={file.blob.size > UPLOAD_LIMIT_BYTES ? 'text-red-400' : 'text-slate-500'}>
-                        {t('cutter.export.size', { mb: toMegabytes(file.blob.size) })}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <FileSizes files={group.files} />
                 {group.thinned && <p className="mt-1 text-xs text-amber-300/80">{t('cutter.result.thinned')}</p>}
               </div>
             ))}

@@ -1,8 +1,8 @@
 {
- "version": "edb832728b7c",
+ "version": "97832c534d3c",
  "kinds": {
   "backgrounds": {
-   "total": 64281,
+   "total": 64287,
    "shards": [
     "backgrounds-0.json",
     "backgrounds-1.json",
@@ -32,7 +32,7 @@
    ]
   },
   "avatars": {
-   "total": 3258,
+   "total": 3260,
    "shards": [
     "avatars-0.json"
    ]

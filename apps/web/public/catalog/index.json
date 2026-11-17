@@ -1,8 +1,8 @@
 {
- "version": "ad07d5352741",
+ "version": "57a93b1e8963",
  "kinds": {
   "backgrounds": {
-   "total": 64367,
+   "total": 64098,
    "shards": [
     "backgrounds-0.json",
     "backgrounds-1.json",
@@ -20,13 +20,13 @@
    ]
   },
   "mini": {
-   "total": 1353,
+   "total": 1352,
    "shards": [
     "mini-0.json"
    ]
   },
   "frames": {
-   "total": 2196,
+   "total": 2192,
    "shards": [
     "frames-0.json"
    ]

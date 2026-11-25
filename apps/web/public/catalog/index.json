@@ -1,5 +1,5 @@
 {
- "version": "f78c948d91b1",
+ "version": "ca77f827d05b",
  "kinds": {
   "backgrounds": {
    "total": 64094,
@@ -32,7 +32,7 @@
    ]
   },
   "avatars": {
-   "total": 3274,
+   "total": 3279,
    "shards": [
     "avatars-0.json"
    ]
